@@ -14,7 +14,7 @@ find_package(catkin REQUIRED COMPONENTS iri_base_algorithm)
 # ******************************************************************** 
 #           Add system and labrobotica dependencies here
 # ******************************************************************** 
-# find_package(<dependency> REQUIRED)
+find_package(wolf REQUIRED)
 
 # ******************************************************************** 
 #           Add topic, service and action definition here
@@ -88,7 +88,7 @@ add_executable(${PROJECT_NAME} src/wolf_alg.cpp src/wolf_alg_node.cpp)
 #                   Add the libraries
 # ******************************************************************** 
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
-# target_link_libraries(${PROJECT_NAME} ${<dependency>_LIBRARY})
+target_link_libraries(${PROJECT_NAME} ${wolf_LIBRARY})
 
 # ******************************************************************** 
 #               Add message headers dependencies 
