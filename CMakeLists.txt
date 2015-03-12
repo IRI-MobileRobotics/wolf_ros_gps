@@ -1,12 +1,26 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(iri_wolf)
 
+#Set compiler according C++11 support
+include(CheckCXXCompilerFlag)
+CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
+CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
+if(COMPILER_SUPPORTS_CXX11)
+        message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has C++11 support.")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+elseif(COMPILER_SUPPORTS_CXX0X)
+        message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has C++0x support.")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+else()
+        message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
+endif()
+
 ## Find catkin macros and libraries
 find_package(catkin REQUIRED)
 # ******************************************************************** 
 #                 Add catkin additional components here
 # ******************************************************************** 
-find_package(catkin REQUIRED COMPONENTS iri_base_algorithm)
+find_package(catkin REQUIRED COMPONENTS iri_base_algorithm visualization_msgs nav_msgs sensor_msgs)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -15,6 +29,8 @@ find_package(catkin REQUIRED COMPONENTS iri_base_algorithm)
 #           Add system and labrobotica dependencies here
 # ******************************************************************** 
 find_package(wolf REQUIRED)
+find_package(Ceres REQUIRED)
+find_package(laser_scan_utils REQUIRED)
 
 # ******************************************************************** 
 #           Add topic, service and action definition here
@@ -60,11 +76,11 @@ catkin_package(
 # ******************************************************************** 
 #            Add ROS and IRI ROS run time dependencies
 # ******************************************************************** 
- CATKIN_DEPENDS iri_base_algorithm
+ CATKIN_DEPENDS iri_base_algorithm visualization_msgs nav_msgs sensor_msgs
 # ******************************************************************** 
 #      Add system and labrobotica run time dependencies here
 # ******************************************************************** 
-#  DEPENDS 
+  DEPENDS Eigen
 )
 
 ###########
@@ -75,7 +91,10 @@ catkin_package(
 #                   Add the include directories 
 # ******************************************************************** 
 include_directories(include)
+include_directories(${CERES_INCLUDE_DIRS})
+include_directories(${laser_scan_utils_INCLUDE_DIRS})
 include_directories(${catkin_INCLUDE_DIRS})
+include_directories(${wolf_INCLUDE_DIR})
 # include_directories(${<dependency>_INCLUDE_DIR})
 
 ## Declare a cpp library
@@ -88,12 +107,17 @@ add_executable(${PROJECT_NAME} src/wolf_alg.cpp src/wolf_alg_node.cpp)
 #                   Add the libraries
 # ******************************************************************** 
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${Ceres_LIBRARIES})
 target_link_libraries(${PROJECT_NAME} ${wolf_LIBRARY})
+target_link_libraries(${PROJECT_NAME} ${laser_scan_utils_LIBRARY})
 
 # ******************************************************************** 
 #               Add message headers dependencies 
 # ******************************************************************** 
 # add_dependencies(${PROJECT_NAME} <msg_package_name>_generate_messages_cpp)
+add_dependencies(${PROJECT_NAME} visualization_msgs_generate_messages_cpp)
+add_dependencies(${PROJECT_NAME} nav_msgs_generate_messages_cpp)
+add_dependencies(${PROJECT_NAME} sensor_msgs_generate_messages_cpp)
 # ******************************************************************** 
 #               Add dynamic reconfigure dependencies 
 # ******************************************************************** 

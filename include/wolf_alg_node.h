@@ -27,8 +27,12 @@
 
 #include <iri_base_algorithm/iri_base_algorithm.h>
 #include "wolf_alg.h"
+#include <tf/transform_broadcaster.h>
 
 // [publisher subscriber headers]
+#include <visualization_msgs/MarkerArray.h>
+#include <nav_msgs/Odometry.h>
+#include <sensor_msgs/LaserScan.h>
 
 // [service client headers]
 
@@ -41,9 +45,40 @@
 class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
 {
   private:
+
+    ceres::Solver::Options ceres_options_;
+    ceres::Problem::Options problem_options_;
+    CeresManager* ceres_manager_;
+    SensorOdom2D* odom_sensor_;
+    SensorLaser2D* laser_1_sensor_;
+    SensorLaser2D* laser_2_sensor_;
+    WolfManager* wolf_manager_;
+    bool laser_1_params_setted_, laser_2_params_setted_;
+
     // [publisher attributes]
+    ros::Publisher corners_publisher_;
+    visualization_msgs::MarkerArray corners_MarkerArray_msg_;
+
 
     // [subscriber attributes]
+    ros::Subscriber relative_odometry_subscriber_;
+    void relative_odometry_callback(const nav_msgs::Odometry::ConstPtr& msg);
+    pthread_mutex_t relative_odometry_mutex_;
+    void relative_odometry_mutex_enter(void);
+    void relative_odometry_mutex_exit(void);
+
+    ros::Subscriber laser_back_subscriber_;
+    void laser_back_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
+    pthread_mutex_t laser_back_mutex_;
+    void laser_back_mutex_enter(void);
+    void laser_back_mutex_exit(void);
+
+    ros::Subscriber laser_front_subscriber_;
+    void laser_front_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
+    pthread_mutex_t laser_front_mutex_;
+    void laser_front_mutex_enter(void);
+    void laser_front_mutex_exit(void);
+
 
     // [service attributes]
 

@@ -28,6 +28,15 @@
 #include <iri_wolf/WolfConfig.h>
 
 //include wolf_alg main library
+#include "wolf_manager.h"
+#include "ceres_wrapper/ceres_manager.h"
+
+//Ceres includes
+//#include "glog/logging.h"
+
+#include <eigen3/Eigen/Core>
+#include <eigen3/Eigen/Dense>
+#include <eigen3/Eigen/Geometry>
 
 /**
  * \brief IRI ROS Specific Driver Class
