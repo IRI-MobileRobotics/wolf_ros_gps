@@ -2,8 +2,8 @@
 
 WolfAlgNode::WolfAlgNode(void) :
   algorithm_base::IriBaseAlgorithm<WolfAlgorithm>(),
-  laser_1_params_setted_(false),
-  laser_2_params_setted_(false)
+  laser_front_params_setted_(false),
+  laser_back_params_setted_(false)
 {
   //init class attributes if necessary
   WolfScalar odom_std[2], new_frame_elapsed_time;
@@ -25,11 +25,11 @@ WolfAlgNode::WolfAlgNode(void) :
 
   // init wolf
   odom_sensor_ = new SensorOdom2D(Eigen::Vector6s::Zero(), odom_std[0], odom_std[1]);
-  Eigen::Vector6s laser_1_pose, laser_2_pose;
-  laser_1_pose << 1.2,0,0,0,0,0; //laser 1
-  laser_2_pose << -1.2,0,0,0,0,M_PI; //laser 2
-  laser_1_sensor_ = new SensorLaser2D(laser_1_pose);
-  laser_2_sensor_ = new SensorLaser2D(laser_2_pose);
+  Eigen::Vector6s laser_front_pose, laser_back_pose;
+  laser_front_pose << 3.5,0,0,0,0,0;
+  laser_back_pose << -0.9,0,0,0,0,-3.12414;
+  laser_front_sensor_ = new SensorLaser2D(laser_front_pose);
+  laser_back_sensor_ = new SensorLaser2D(laser_back_pose);
   wolf_manager_ = new WolfManager(odom_sensor_, false, state_initial_length, Eigen::Vector3s::Zero(), new_frame_elapsed_time, window_length);
 
   // [init publishers]
@@ -70,7 +70,7 @@ void WolfAlgNode::mainNodeThread(void)
   ceres::Solver::Summary summary = ceres_manager_->solve(ceres_options_);
 
   // [fill msg structures]
-  ROS_INFO("WolfAlgNode: %i Landmarks ", wolf_manager_->getProblemPtr()->getMapPtr()->getLandmarkListPtr()->size());
+
   unsigned int i = 0;
   for (auto l_it = wolf_manager_->getProblemPtr()->getMapPtr()->getLandmarkListPtr()->begin(); l_it != wolf_manager_->getProblemPtr()->getMapPtr()->getLandmarkListPtr()->end(); l_it++)
   {
@@ -83,14 +83,17 @@ void WolfAlgNode::mainNodeThread(void)
       new_corner.color.r = 1;
       new_corner.color.g = 0;
       new_corner.color.b = 0;
+      new_corner.color.a = 1;
       new_corner.ns = "/corners";
-      new_corner.id = i;
+      new_corner.id = corners_MarkerArray_msg_.markers.back().id+1;
 
       new_corner.pose.position.x = *(*l_it)->getPPtr()->getPtr();
       new_corner.pose.position.y = *((*l_it)->getPPtr()->getPtr()+1);
       new_corner.pose.position.z = 1.5;
       new_corner.pose.orientation = tf::createQuaternionMsgFromYaw(*(*l_it)->getOPtr()->getPtr());
 
+      new_corner.scale.x = 1;
+      new_corner.scale.y = 1;
       new_corner.scale.z = 3;
       corners_MarkerArray_msg_.markers.push_back(new_corner);
       ROS_INFO("WolfAlgNode: New landmark!");
@@ -106,7 +109,7 @@ void WolfAlgNode::mainNodeThread(void)
     }
     i++;
   }
-
+  ROS_INFO("WolfAlgNode: %i Landmarks ", corners_MarkerArray_msg_.markers.size());
   
   // [fill srv structure and make request to the server]
   
@@ -148,26 +151,72 @@ void WolfAlgNode::laser_back_callback(const sensor_msgs::LaserScan::ConstPtr& ms
 {
   //ROS_INFO("WolfAlgNode::laser_back_callback: New Message Received");
 
-  if (!laser_1_params_setted_)
+  if (!laser_back_params_setted_)
   {
-    laserscanutils::ScanParams params = laser_1_sensor_->getScanParams();
+    laserscanutils::ScanParams params = laser_back_sensor_->getScanParams();
     params.angle_min_ = msg->angle_min;
     params.angle_max_ = msg->angle_max;
     params.angle_step_ = msg->angle_increment;
     params.scan_time_ = msg->time_increment;
     params.range_min_ = msg->range_min;
     params.range_max_ = msg->range_max;
-    laser_1_sensor_->setScanParams(params);
+    laser_back_sensor_->setScanParams(params);
   }
 
   //use appropiate mutex to shared variables if necessary
   //this->alg_.lock();
   //this->laser_back_mutex_enter();
-  Eigen::Map<Eigen::VectorXs> scan_reading(std::vector<double>(msg->ranges.begin(), msg->ranges.end()).data(), msg->ranges.size());
-  wolf_manager_->addCapture(new CaptureLaser2D(TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
-                                               laser_1_sensor_,
-                                               scan_reading));
-  //std::cout << msg->data << std::endl;
+  CaptureLaser2D* new_capture = new CaptureLaser2D(TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
+                                                              laser_back_sensor_,
+                                                              msg->ranges);
+  wolf_manager_->addCapture(new_capture);
+
+  std::list<laserscanutils::Line> line_list;
+  new_capture->extractLines(line_list);
+
+  visualization_msgs::Marker new_line_;
+  new_line_.header.stamp = ros::Time::now();
+  new_line_.header.frame_id = "/map";
+  new_line_.type = visualization_msgs::Marker::LINE_LIST;
+  new_line_.color.r = 1;
+  new_line_.color.g = 0;
+  new_line_.color.b = 0;
+  new_line_.color.a = 1;
+  new_line_.ns = "/lines";
+  new_line_.id = corners_MarkerArray_msg_.markers.back().id+1;
+  for (auto line_it = line_list.begin(); line_it != line_list.end(); line_it++ )
+  {
+    geometry_msgs::Point point1, point2;
+    point1.x = line_it->point_first_(0);
+    point1.y = line_it->point_first_(1);
+    point1.z = 1.5;
+    point2.x = line_it->point_last_(0);
+    point2.y = line_it->point_last_(1);
+    point2.z = 1.5;
+
+    new_line_.points.push_back(point1);
+    new_line_.points.push_back(point2);
+    ROS_INFO("WolfAlgNode: New landmark!");
+  }
+  if (line_list.size() > 1)
+    corners_MarkerArray_msg_.markers.push_back(new_line_);
+
+  ROS_INFO("WolfAlgNode: %i Lines ", line_list.size());
+
+    // [fill srv structure and make request to the server]
+
+    // [fill action structure and make request to the action server]
+
+    // [publish messages]
+    corners_publisher_.publish(this->corners_MarkerArray_msg_);
+
+
+//  ROS_INFO("Ranges:");
+//  std::copy(msg->ranges.begin(), msg->ranges.end(), std::ostream_iterator<float>(std::cout, " "));
+//  ROS_INFO("Double ranges:");
+//  std::copy(double_ranges.begin(), double_ranges.end(), std::ostream_iterator<double>(std::cout, " "));
+//  ROS_INFO("Scan:");
+//  std::cout << "scan:" << scan_reading.transpose() << std::endl;
   //unlock previously blocked shared variables
   //this->alg_.unlock();
   //this->laser_back_mutex_exit();
@@ -187,24 +236,23 @@ void WolfAlgNode::laser_front_callback(const sensor_msgs::LaserScan::ConstPtr& m
 {
   //ROS_INFO("WolfAlgNode::laser_front_callback: New Message Received");
 
-  if (!laser_2_params_setted_)
+  if (!laser_front_params_setted_)
   {
-    laserscanutils::ScanParams params = laser_2_sensor_->getScanParams();
+    laserscanutils::ScanParams params = laser_front_sensor_->getScanParams();
     params.angle_min_ = msg->angle_min;
     params.angle_max_ = msg->angle_max;
     params.angle_step_ = msg->angle_increment;
     params.scan_time_ = msg->time_increment;
     params.range_min_ = msg->range_min;
     params.range_max_ = msg->range_max;
-    laser_2_sensor_->setScanParams(params);
+    laser_front_sensor_->setScanParams(params);
   }
   //use appropiate mutex to shared variables if necessary
   //this->alg_.lock();
   //this->laser_front_mutex_enter();
-  Eigen::Map<Eigen::VectorXs> scan_reading(std::vector<double>(msg->ranges.begin(), msg->ranges.end()).data(), msg->ranges.size());
   wolf_manager_->addCapture(new CaptureLaser2D(TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
-                                               laser_2_sensor_,
-                                               scan_reading));
+                                               laser_front_sensor_,
+                                               msg->ranges));
   //std::cout << msg->data << std::endl;
   //unlock previously blocked shared variables
   //this->alg_.unlock();
@@ -244,3 +292,5 @@ int main(int argc,char *argv[])
 {
   return algorithm_base::main<WolfAlgNode>(argc, argv, "wolf_alg_node");
 }
+
+

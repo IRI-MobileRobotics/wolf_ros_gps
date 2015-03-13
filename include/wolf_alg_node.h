@@ -50,10 +50,10 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
     ceres::Problem::Options problem_options_;
     CeresManager* ceres_manager_;
     SensorOdom2D* odom_sensor_;
-    SensorLaser2D* laser_1_sensor_;
-    SensorLaser2D* laser_2_sensor_;
+    SensorLaser2D* laser_front_sensor_;
+    SensorLaser2D* laser_back_sensor_;
     WolfManager* wolf_manager_;
-    bool laser_1_params_setted_, laser_2_params_setted_;
+    bool laser_front_params_setted_, laser_back_params_setted_;
 
     // [publisher attributes]
     ros::Publisher corners_publisher_;

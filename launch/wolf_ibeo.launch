@@ -1,0 +1,30 @@
+<launch>
+
+<!--WOLF-->
+<node name="iri_wolf"
+      pkg="iri_wolf"
+      type="iri_wolf"
+      output="screen">
+      <remap from="~relative_odometry" to="/iri_ibeo_pointcloud_2_laserscan/odom_rel"/>
+      <remap from="~laser_front" to="/iri_ibeo_pointcloud_2_laserscan/ibeo_1b_laserscan"/>
+      <remap from="~laser_back" to="/iri_ibeo_pointcloud_2_laserscan/ibeo_4b_laserscan"/>
+</node>
+	
+<!--RESULTS VISUALIZATION-->
+<node name="rviz"
+      pkg="rviz"
+      type="rviz" 
+      args="-d $(find iri_wolf)/config/ibeo_wolf.rviz" />
+
+<param name="use_sim_time" value="true" />
+
+<node pkg="rosbag"
+      type="play"
+      name="rosbag"
+      args="-d 5 -r 1 --clock -k /home/jvallve/bags/TNO-dataset/fused_bag/106_all.bag"/>
+      <!-- 
+      /home/jvallve/bags/TNO-dataset/fused_bag/106_all.bag 
+      /home/jvallve/bags/TNO-dataset/fused_bag/107_all.bag
+      -->
+</launch>
+
