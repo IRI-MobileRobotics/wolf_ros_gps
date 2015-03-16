@@ -20,7 +20,7 @@ find_package(catkin REQUIRED)
 # ******************************************************************** 
 #                 Add catkin additional components here
 # ******************************************************************** 
-find_package(catkin REQUIRED COMPONENTS iri_base_algorithm visualization_msgs nav_msgs sensor_msgs)
+find_package(catkin REQUIRED COMPONENTS iri_base_algorithm visualization_msgs nav_msgs sensor_msgs tf)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)

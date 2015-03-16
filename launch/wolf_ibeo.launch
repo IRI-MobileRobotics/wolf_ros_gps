@@ -6,8 +6,12 @@
       type="iri_wolf"
       output="screen">
       <remap from="~relative_odometry" to="/iri_ibeo_pointcloud_2_laserscan/odom_rel"/>
-      <remap from="~laser_front" to="/iri_ibeo_pointcloud_2_laserscan/ibeo_1b_laserscan"/>
-      <remap from="~laser_back" to="/iri_ibeo_pointcloud_2_laserscan/ibeo_4b_laserscan"/>
+      <remap from="~laser_1" to="/iri_ibeo_pointcloud_2_laserscan/ibeo_1b_laserscan"/>
+      <remap from="~laser_2" to="/iri_ibeo_pointcloud_2_laserscan/ibeo_2b_laserscan"/>
+      <remap from="~laser_3" to="/iri_ibeo_pointcloud_2_laserscan/ibeo_3b_laserscan"/>
+      <remap from="~laser_4" to="/iri_ibeo_pointcloud_2_laserscan/ibeo_4b_laserscan"/>
+      <remap from="~laser_5" to="/iri_ibeo_pointcloud_2_laserscan/ibeo_5b_laserscan"/>
+      <remap from="~laser_6" to="/iri_ibeo_pointcloud_2_laserscan/ibeo_6b_laserscan"/>
 </node>
 	
 <!--RESULTS VISUALIZATION-->
@@ -21,7 +25,7 @@
 <node pkg="rosbag"
       type="play"
       name="rosbag"
-      args="-d 5 -r 1 --clock -k /home/jvallve/bags/TNO-dataset/fused_bag/106_all.bag"/>
+      args="-d 0 -r 0.2 --clock -k /home/jvallve/bags/TNO-dataset/fused_bag/106_all_not_localization_tfs.bag"/>
       <!-- 
       /home/jvallve/bags/TNO-dataset/fused_bag/106_all.bag 
       /home/jvallve/bags/TNO-dataset/fused_bag/107_all.bag

@@ -6,8 +6,8 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /MarkerArray1
-        - /MarkerArray1/Status1
+        - /Corners1
+        - /Lines1
       Splitter Ratio: 0.5
     Tree Height: 717
   - Class: rviz/Selection
@@ -28,7 +28,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Front ibeo
+    SyncSource: Back R b LaserScan
 Visualization Manager:
   Class: ""
   Displays:
@@ -489,9 +489,17 @@ Visualization Manager:
     - Class: rviz/MarkerArray
       Enabled: true
       Marker Topic: /iri_wolf/corners
-      Name: MarkerArray
+      Name: Corners
       Namespaces:
-        {}
+        /corners: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /iri_wolf/lines
+      Name: Lines
+      Namespaces:
+        /lines: true
       Queue Size: 100
       Value: true
   Enabled: true
@@ -518,22 +526,22 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 102.259
+      Distance: 77.8382
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 53.6919
-        Y: 7.07671
-        Z: -19.9541
+        X: 47.2321
+        Y: -0.897851
+        Z: -26.4812
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.594801
+      Pitch: 0.534801
       Target Frame: vehicle
       Value: Orbit (rviz)
-      Yaw: 3.20814
+      Yaw: 3.09314
     Saved: ~
 Window Geometry:
   Displays:

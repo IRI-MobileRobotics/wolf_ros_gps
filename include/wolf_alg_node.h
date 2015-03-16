@@ -27,12 +27,14 @@
 
 #include <iri_base_algorithm/iri_base_algorithm.h>
 #include "wolf_alg.h"
-#include <tf/transform_broadcaster.h>
 
 // [publisher subscriber headers]
+#include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/LaserScan.h>
+#include <tf/transform_broadcaster.h>
+#include <tf/transform_listener.h>
 
 // [service client headers]
 
@@ -50,34 +52,68 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
     ceres::Problem::Options problem_options_;
     CeresManager* ceres_manager_;
     SensorOdom2D* odom_sensor_;
-    SensorLaser2D* laser_front_sensor_;
-    SensorLaser2D* laser_back_sensor_;
+    std::vector<SensorLaser2D*> laser_sensor_ptrs_;
     WolfManager* wolf_manager_;
-    bool laser_front_params_setted_, laser_back_params_setted_;
+    std::vector<bool> laser_params_setted_;
+    std::vector<std_msgs::ColorRGBA> lines_colors_;
+
+    tf::TransformBroadcaster tfb_;
+    tf::TransformListener    tfl_;
+
+    tf::Transform T_odom_;
+    tf::Transform T_localization_;
+    tf::Transform T_map_base_;
 
     // [publisher attributes]
+    ros::Publisher lines_publisher_;
+    visualization_msgs::MarkerArray lines_MarkerArray_msg_;
+
     ros::Publisher corners_publisher_;
     visualization_msgs::MarkerArray corners_MarkerArray_msg_;
 
 
     // [subscriber attributes]
+    ros::Subscriber laser_1_subscriber_;
+    void laser_1_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
+    pthread_mutex_t laser_1_mutex_;
+    void laser_1_mutex_enter(void);
+    void laser_1_mutex_exit(void);
+
+    ros::Subscriber laser_2_subscriber_;
+    void laser_2_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
+    pthread_mutex_t laser_2_mutex_;
+    void laser_2_mutex_enter(void);
+    void laser_2_mutex_exit(void);
+
+    ros::Subscriber laser_3_subscriber_;
+    void laser_3_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
+    pthread_mutex_t laser_3_mutex_;
+    void laser_3_mutex_enter(void);
+    void laser_3_mutex_exit(void);
+
+    ros::Subscriber laser_4_subscriber_;
+    void laser_4_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
+    pthread_mutex_t laser_4_mutex_;
+    void laser_4_mutex_enter(void);
+    void laser_4_mutex_exit(void);
+
+    ros::Subscriber laser_5_subscriber_;
+    void laser_5_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
+    pthread_mutex_t laser_5_mutex_;
+    void laser_5_mutex_enter(void);
+    void laser_5_mutex_exit(void);
+
+    ros::Subscriber laser_6_subscriber_;
+    void laser_6_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
+    pthread_mutex_t laser_6_mutex_;
+    void laser_6_mutex_enter(void);
+    void laser_6_mutex_exit(void);
+
     ros::Subscriber relative_odometry_subscriber_;
     void relative_odometry_callback(const nav_msgs::Odometry::ConstPtr& msg);
     pthread_mutex_t relative_odometry_mutex_;
     void relative_odometry_mutex_enter(void);
     void relative_odometry_mutex_exit(void);
-
-    ros::Subscriber laser_back_subscriber_;
-    void laser_back_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
-    pthread_mutex_t laser_back_mutex_;
-    void laser_back_mutex_enter(void);
-    void laser_back_mutex_exit(void);
-
-    ros::Subscriber laser_front_subscriber_;
-    void laser_front_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
-    pthread_mutex_t laser_front_mutex_;
-    void laser_front_mutex_enter(void);
-    void laser_front_mutex_exit(void);
 
 
     // [service attributes]
@@ -145,6 +181,10 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
     // [diagnostic functions]
     
     // [test functions]
+
+    void computeLaserScan(CaptureLaser2D* new_capture, const std_msgs::Header & header, const unsigned int laser_idx);
+
+    void updateLaserParams(const unsigned int laser_idx, const sensor_msgs::LaserScan::ConstPtr& msg);
 };
 
 #endif
