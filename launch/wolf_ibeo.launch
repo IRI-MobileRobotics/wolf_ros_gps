@@ -25,10 +25,9 @@
 <node pkg="rosbag"
       type="play"
       name="rosbag"
-      args="-d 0 -r 0.2 --clock -k /home/jvallve/bags/TNO-dataset/fused_bag/106_all_not_localization_tfs.bag"/>
+      args="-d 0 -r 2 --clock -k /home/jvallve/bags/TNO-dataset/fused_bag/106_all_not_localization_tfs.bag"/>
       <!-- 
       /home/jvallve/bags/TNO-dataset/fused_bag/106_all.bag 
       /home/jvallve/bags/TNO-dataset/fused_bag/107_all.bag
       -->
 </launch>
-

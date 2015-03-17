@@ -47,7 +47,9 @@
 class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
 {
   private:
-
+    bool draw_lines_;
+    int window_length_;
+    double new_frame_elapsed_time_;
     ceres::Solver::Options ceres_options_;
     ceres::Problem::Options problem_options_;
     CeresManager* ceres_manager_;
@@ -68,8 +70,14 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
     ros::Publisher lines_publisher_;
     visualization_msgs::MarkerArray lines_MarkerArray_msg_;
 
+    ros::Publisher constraints_publisher_;
+    visualization_msgs::Marker constraints_Marker_msg_;
+
     ros::Publisher corners_publisher_;
     visualization_msgs::MarkerArray corners_MarkerArray_msg_;
+
+    ros::Publisher vehicle_publisher_;
+    visualization_msgs::MarkerArray vehicle_MarkerArray_msg_;
 
 
     // [subscriber attributes]
