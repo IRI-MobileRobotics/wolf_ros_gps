@@ -50,13 +50,27 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
     bool draw_lines_;
     int window_length_;
     double new_frame_elapsed_time_;
+    
+    //ceres
     ceres::Solver::Options ceres_options_;
     ceres::Problem::Options problem_options_;
     CeresManager* ceres_manager_;
-    SensorOdom2D* odom_sensor_;
-    std::vector<SensorLaser2D*> laser_sensor_ptrs_;
+    
+    //Wolf: odom sensors
+    Eigen::Vector3s odom_sensor_pose_; //it could be part of the state at wolf_manager_->WolfProblem.state_
+    StatePoint2D odom_sensor_point_;
+    StateTheta odom_sensor_theta_;
+    SensorOdom2D* odom_sensor_ptr_;
+    
+    //Wolf: laser sensors
+    std::vector<Eigen::Vector6s> laser_sensor_pose_;
+    std::vector<SensorLaser2D*> laser_sensor_ptr_;
+    std::vector<bool> laser_params_setted_;    
+
+    //Wolf: manager
     WolfManager* wolf_manager_;
-    std::vector<bool> laser_params_setted_;
+    
+    //visualization
     std::vector<std_msgs::ColorRGBA> lines_colors_;
 
     tf::TransformBroadcaster tfb_;

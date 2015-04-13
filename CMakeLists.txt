@@ -28,9 +28,9 @@ find_package(catkin REQUIRED COMPONENTS iri_base_algorithm visualization_msgs na
 # ******************************************************************** 
 #           Add system and labrobotica dependencies here
 # ******************************************************************** 
-find_package(wolf REQUIRED)
 find_package(Ceres REQUIRED)
 find_package(laser_scan_utils REQUIRED)
+find_package(wolf REQUIRED)
 
 # ******************************************************************** 
 #           Add topic, service and action definition here
@@ -90,13 +90,13 @@ catkin_package(
 # ******************************************************************** 
 #                   Add the include directories 
 # ******************************************************************** 
-include_directories(include)
-include_directories(${CERES_INCLUDE_DIRS})
-include_directories(${laser_scan_utils_INCLUDE_DIRS})
-include_directories(${catkin_INCLUDE_DIRS})
-include_directories(${wolf_INCLUDE_DIR})
-# include_directories(${<dependency>_INCLUDE_DIR})
-
+include_directories(include
+                    ${catkin_INCLUDE_DIRS}
+                    ${CERES_INCLUDE_DIRS}
+                    ${laser_scan_utils_INCLUDE_DIRS}
+                    ${wolf_INCLUDE_DIRS})
+# message("wolf_INCLUDE_DIRS: ${wolf_INCLUDE_DIRS}")
+                    
 ## Declare a cpp library
 # add_library(${PROJECT_NAME} <list of source files>)
 
@@ -108,8 +108,8 @@ add_executable(${PROJECT_NAME} src/wolf_alg.cpp src/wolf_alg_node.cpp)
 # ******************************************************************** 
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
 target_link_libraries(${PROJECT_NAME} ${Ceres_LIBRARIES})
-target_link_libraries(${PROJECT_NAME} ${wolf_LIBRARY})
 target_link_libraries(${PROJECT_NAME} ${laser_scan_utils_LIBRARY})
+target_link_libraries(${PROJECT_NAME} ${wolf_LIBRARY})
 
 # ******************************************************************** 
 #               Add message headers dependencies 

@@ -1,21 +1,24 @@
 #include "wolf_alg_node.h"
 
 WolfAlgNode::WolfAlgNode(void) :
-  algorithm_base::IriBaseAlgorithm<WolfAlgorithm>(),
-  laser_params_setted_({false, false, false, false, false, false}),
-  laser_sensor_ptrs_(6),
-  lines_colors_(6),
-  draw_lines_(false)
+    algorithm_base::IriBaseAlgorithm<WolfAlgorithm>(),
+    odom_sensor_pose_(3),
+    odom_sensor_point_(odom_sensor_pose_.data()),
+    odom_sensor_theta_(&odom_sensor_pose_(2)),
+    laser_params_setted_({false, false, false, false, false, false}),
+    laser_sensor_ptrs_(6),
+    lines_colors_(6),
+    draw_lines_(false)
 {
   //init class attributes if necessary
   WolfScalar odom_std[2];
   int state_initial_length;
-  public_node_handle_.param<double>("odometry_tranlational_std", odom_std[0], 0.1);
   public_node_handle_.param<int>("window_length", window_length_, 35);
+  public_node_handle_.param<double>("odometry_translational_std", odom_std[0], 0.1);
   public_node_handle_.param<double>("odometry_rotational_std", odom_std[1], 0.2);
-  public_node_handle_.param<int>("state_initial_lenght", state_initial_length, 1e9);
-
-  this->loop_rate_ = 10;//in [Hz]
+  public_node_handle_.param<int>("state_initial_length", state_initial_length, 1e6);
+  this->loop_rate_ = 10;//in [Hz] ToDo: should be an input parameter from cfg
+  
   // init ceres
   ceres_options_.minimizer_type = ceres::LINE_SEARCH;//ceres::TRUST_REGION;
   ceres_options_.max_line_search_step_contraction = 1e-3;
@@ -24,9 +27,12 @@ WolfAlgNode::WolfAlgNode(void) :
   problem_options_.local_parameterization_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
   ceres_manager_ = new CeresManager(problem_options_);
 
-  // init wolf
-  odom_sensor_ = new SensorOdom2D(Eigen::Vector6s::Zero(), odom_std[0], odom_std[1]);
-  std::vector<Eigen::Vector6s> laser_poses(6);
+  // init wolf odom sensor
+  odom_sensor_pose_ = Eigen::Vector3s::Zero(); //odom sensor coniciding with vehicle base link  
+  odom_sensor_ = new SensorOdom2D(&odom_sensor_point_, &odom_sensor_theta_, odom_std[0], odom_std[1]);
+  
+  // init wolf laser sensor
+  //std::vector<Eigen::Vector6s> laser_poses(6);
   laser_poses[0] << 3.5,0,0,0,0,0;
   laser_poses[1] << 3.1,-0.78,0,0,0,-1.65806;//3.1 -0.78 0.5 yaw:-1.65806
   laser_poses[2] << -0.5,-0.8,0,0,0,-1.46608;//-0.5 -0.8  0.5  yaw:-1.46608
