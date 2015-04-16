@@ -2,6 +2,10 @@
 
 <launch>
 
+<!-- User Args  -->
+<arg name="bag_file_name"
+     default="/home/jvallve/bags/TNO-dataset/fused_bag/106_all_not_localization_tfs.bag" /> 
+
 <!--WOLF-->
 <node name="iri_wolf"
       pkg="iri_wolf"
@@ -27,9 +31,5 @@
 <node pkg="rosbag"
       type="play"
       name="rosbag"
-      args="-d 0 -r 2 --clock -k /home/jvallve/bags/TNO-dataset/fused_bag/106_all_not_localization_tfs.bag"/>
-      <!-- 
-      /home/jvallve/bags/TNO-dataset/fused_bag/106_all.bag 
-      /home/jvallve/bags/TNO-dataset/fused_bag/107_all.bag
-      -->
+      args="-d 0 -r 1 --clock -k $(arg bag_file_name)"/>
 </launch>

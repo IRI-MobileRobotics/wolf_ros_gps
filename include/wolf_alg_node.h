@@ -64,6 +64,8 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
     
     //Wolf: laser sensors
     std::vector<Eigen::Vector6s> laser_sensor_pose_;
+    std::vector<StatePoint2D*> laser_sensor_point_;
+    std::vector<StateTheta*> laser_sensor_theta_;
     std::vector<SensorLaser2D*> laser_sensor_ptr_;
     std::vector<bool> laser_params_setted_;    
 
