@@ -3,8 +3,7 @@
 <launch>
 
 <!-- User Args  -->
-<arg name="bag_file_name"
-     default="/home/jvallve/bags/TNO-dataset/fused_bag/106_all_not_localization_tfs.bag" /> 
+<arg name="bag_file_name" default="/home/jvallve/bags/TNO-dataset/fused_bag/106_all_not_localization_tfs.bag" /> 
 
 <!--WOLF-->
 <node name="iri_wolf"

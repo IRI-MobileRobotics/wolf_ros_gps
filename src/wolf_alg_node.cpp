@@ -34,7 +34,7 @@ WolfAlgNode::WolfAlgNode(void) :
     odom_sensor_pose_ = Eigen::Vector3s::Zero(); //odom sensor coniciding with vehicle base link  
     odom_sensor_ptr_ = new SensorOdom2D(&odom_sensor_point_, &odom_sensor_theta_, odom_std[0], odom_std[1]);//both arguments initialized on top
 
-    // init wolf laser sensors
+    // init wolf laser sensors: TODO: Get poses from an urdf file through a tf::TransformListener object
     laser_sensor_pose_[0] << 3.5,0,0,0,0,0;
     laser_sensor_pose_[1] << 3.1,-0.78,0,0,0,-1.65806;//3.1 -0.78 0.5 yaw:-1.65806
     laser_sensor_pose_[2] << -0.5,-0.8,0,0,0,-1.46608;//-0.5 -0.8  0.5  yaw:-1.46608
