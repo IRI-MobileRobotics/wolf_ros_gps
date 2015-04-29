@@ -75,9 +75,9 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
     //visualization
     std::vector<std_msgs::ColorRGBA> lines_colors_;
 
+    //transforms
     tf::TransformBroadcaster tfb_;
     tf::TransformListener    tfl_;
-
     tf::Transform T_odom_;
     tf::Transform T_localization_;
     tf::Transform T_map_base_;
@@ -94,7 +94,6 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
 
     ros::Publisher vehicle_publisher_;
     visualization_msgs::MarkerArray vehicle_MarkerArray_msg_;
-
 
     // [subscriber attributes]
     ros::Subscriber laser_1_subscriber_;
@@ -138,7 +137,6 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
     pthread_mutex_t relative_odometry_mutex_;
     void relative_odometry_mutex_enter(void);
     void relative_odometry_mutex_exit(void);
-
 
     // [service attributes]
 

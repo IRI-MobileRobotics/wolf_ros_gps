@@ -178,189 +178,209 @@ WolfAlgNode::~WolfAlgNode(void)
     }
         
     // [free dynamic memory]
+    pthread_mutex_destroy(&this->laser_1_mutex_);
+    pthread_mutex_destroy(&this->laser_2_mutex_);
     pthread_mutex_destroy(&this->laser_3_mutex_);
+    pthread_mutex_destroy(&this->laser_4_mutex_);
     pthread_mutex_destroy(&this->laser_5_mutex_);
     pthread_mutex_destroy(&this->laser_6_mutex_);
-    pthread_mutex_destroy(&this->laser_2_mutex_);
     pthread_mutex_destroy(&this->relative_odometry_mutex_);
-    pthread_mutex_destroy(&this->laser_4_mutex_);
-    pthread_mutex_destroy(&this->laser_1_mutex_);
 }
 
 void WolfAlgNode::mainNodeThread(void)
 {
-  wolf_manager_->update();
-  ceres_manager_->update(wolf_manager_->getProblemPtr());
-  ceres::Solver::Summary summary = ceres_manager_->solve(ceres_options_);
+    //lock everyone
+    laser_1_mutex_enter();
+    laser_2_mutex_enter();
+    laser_3_mutex_enter();
+    laser_4_mutex_enter();
+    laser_5_mutex_enter();
+    laser_6_mutex_enter();
+    relative_odometry_mutex_enter();
+    
+    //solve problem
+    wolf_manager_->update();
+    ceres_manager_->update(wolf_manager_->getProblemPtr());
+    ceres::Solver::Summary summary = ceres_manager_->solve(ceres_options_);
+    
+    //unlock everyone
+    laser_1_mutex_exit();
+    laser_2_mutex_exit();
+    laser_3_mutex_exit();
+    laser_4_mutex_exit();
+    laser_5_mutex_exit();
+    laser_6_mutex_exit();
+    relative_odometry_mutex_exit();    
 
-  // tf
-  Eigen::VectorXs vehicle_pose  = wolf_manager_->getVehiclePose();
-//  std::cout << "Get vehicle pose: "<< vehicle_pose.transpose() << std::endl;
-  geometry_msgs::Pose current_pose;
-  current_pose.position.x = vehicle_pose(0);
-  current_pose.position.y = vehicle_pose(1);
-  current_pose.position.z = 0;
-  current_pose.orientation = tf::createQuaternionMsgFromYaw(vehicle_pose(2));
-  tf::poseMsgToTF(current_pose, T_localization_);
+    // tf
+    Eigen::VectorXs vehicle_pose  = wolf_manager_->getVehiclePose();
+    //  std::cout << "Get vehicle pose: "<< vehicle_pose.transpose() << std::endl;
+    geometry_msgs::Pose current_pose;
+    current_pose.position.x = vehicle_pose(0);
+    current_pose.position.y = vehicle_pose(1);
+    current_pose.position.z = 0;
+    current_pose.orientation = tf::createQuaternionMsgFromYaw(vehicle_pose(2));
+    tf::poseMsgToTF(current_pose, T_localization_);
 
-  // [fill msg structures]
+    // [fill msg structures]
 
-  // WINDOW OF FRAMES
-  ConstraintBaseList ctr_list;
-  constraints_Marker_msg_.points.clear();
-  unsigned int i = 2;
-  for (auto fr_it = wolf_manager_->getProblemPtr()->getTrajectoryPtr()->getFrameListPtr()->rbegin(); fr_it != wolf_manager_->getProblemPtr()->getTrajectoryPtr()->getFrameListPtr()->rend(); fr_it++)
-  {
-    // FRAME
-    vehicle_MarkerArray_msg_.markers[i].action = visualization_msgs::Marker::MODIFY;
-    vehicle_MarkerArray_msg_.markers[i].pose.position.x = *(*fr_it)->getPPtr()->getPtr()+1.3*cos(*(*fr_it)->getOPtr()->getPtr());
-    vehicle_MarkerArray_msg_.markers[i].pose.position.y = *((*fr_it)->getPPtr()->getPtr()+1)+1.3*sin(*(*fr_it)->getOPtr()->getPtr());
-    vehicle_MarkerArray_msg_.markers[i].pose.orientation = tf::createQuaternionMsgFromYaw(*(*fr_it)->getOPtr()->getPtr());
-    vehicle_MarkerArray_msg_.markers[i].color.a = 0.5;
-
-    // CONSTRAINTS (odometry)
-    geometry_msgs::Point point1, point2;
-    point1.x = *(*fr_it)->getPPtr()->getPtr();
-    point1.y = *((*fr_it)->getPPtr()->getPtr()+1);
-    point1.z = 0.25;
-    if (i == 2)
+    // WINDOW OF FRAMES
+    ConstraintBaseList ctr_list;
+    constraints_Marker_msg_.points.clear();
+    unsigned int i = 2;
+    for (auto fr_it = wolf_manager_->getProblemPtr()->getTrajectoryPtr()->getFrameListPtr()->rbegin(); fr_it != wolf_manager_->getProblemPtr()->getTrajectoryPtr()->getFrameListPtr()->rend(); fr_it++)
     {
-      point2.x = current_pose.position.x;
-      point2.y = current_pose.position.y;
-      point2.z = 0.25;
-    }
-    else
-    {
-      auto next_frame = fr_it; //inverse iterator
-      next_frame--;
-      point2.x = *(*next_frame)->getPPtr()->getPtr();
-      point2.y = *((*next_frame)->getPPtr()->getPtr()+1);
-      point2.z = 0.25;
-    }
-    constraints_Marker_msg_.points.push_back(point1);
-    constraints_Marker_msg_.points.push_back(point2);
+        // FRAME
+        vehicle_MarkerArray_msg_.markers[i].action = visualization_msgs::Marker::MODIFY;
+        vehicle_MarkerArray_msg_.markers[i].pose.position.x = *(*fr_it)->getPPtr()->getPtr()+1.3*cos(*(*fr_it)->getOPtr()->getPtr());
+        vehicle_MarkerArray_msg_.markers[i].pose.position.y = *((*fr_it)->getPPtr()->getPtr()+1)+1.3*sin(*(*fr_it)->getOPtr()->getPtr());
+        vehicle_MarkerArray_msg_.markers[i].pose.orientation = tf::createQuaternionMsgFromYaw(*(*fr_it)->getOPtr()->getPtr());
+        vehicle_MarkerArray_msg_.markers[i].color.a = 0.5;
 
-    // CONSTRAINTS (landmarks)
-    ctr_list.clear();
-    (*fr_it)->getConstraintList(ctr_list);
-    for (auto c_it = ctr_list.begin(); c_it != ctr_list.end(); c_it++)
-    {
-      if ((*c_it)->getConstraintType() == CTR_CORNER_2D_THETA)
-      {
+        // CONSTRAINTS (odometry)
+        geometry_msgs::Point point1, point2;
         point1.x = *(*fr_it)->getPPtr()->getPtr();
         point1.y = *((*fr_it)->getPPtr()->getPtr()+1);
+        point1.z = 0.25;
+        if (i == 2)
+        {
+        point2.x = current_pose.position.x;
+        point2.y = current_pose.position.y;
         point2.z = 0.25;
-        point2.x = *((ConstraintCorner2DTheta*)(*c_it))->getLandmarkPtr()->getPPtr()->getPtr();
-        point2.y = *(((ConstraintCorner2DTheta*)(*c_it))->getLandmarkPtr()->getPPtr()->getPtr()+1);
-        point2.z = 1.5;
+        }
+        else
+        {
+        auto next_frame = fr_it; //inverse iterator
+        next_frame--;
+        point2.x = *(*next_frame)->getPPtr()->getPtr();
+        point2.y = *((*next_frame)->getPPtr()->getPtr()+1);
+        point2.z = 0.25;
+        }
         constraints_Marker_msg_.points.push_back(point1);
         constraints_Marker_msg_.points.push_back(point2);
-      }
+
+        // CONSTRAINTS (landmarks)
+        ctr_list.clear();
+        (*fr_it)->getConstraintList(ctr_list);
+        for (auto c_it = ctr_list.begin(); c_it != ctr_list.end(); c_it++)
+        {
+        if ((*c_it)->getConstraintType() == CTR_CORNER_2D_THETA)
+        {
+            point1.x = *(*fr_it)->getPPtr()->getPtr();
+            point1.y = *((*fr_it)->getPPtr()->getPtr()+1);
+            point1.z = 0.25;
+            point2.x = *((ConstraintCorner2DTheta*)(*c_it))->getLandmarkPtr()->getPPtr()->getPtr();
+            point2.y = *(((ConstraintCorner2DTheta*)(*c_it))->getLandmarkPtr()->getPPtr()->getPtr()+1);
+            point2.z = 1.5;
+            constraints_Marker_msg_.points.push_back(point1);
+            constraints_Marker_msg_.points.push_back(point2);
+        }
+        }
+        i++;
+        if (i > window_length_+1)
+        break;
     }
-    i++;
-    if (i > window_length_+1)
-      break;
-  }
-  // LANDMARKS
-  i = 0;
-  corners_MarkerArray_msg_.markers.clear();
-  for (auto l_it = wolf_manager_->getProblemPtr()->getMapPtr()->getLandmarkListPtr()->begin(); l_it != wolf_manager_->getProblemPtr()->getMapPtr()->getLandmarkListPtr()->end(); l_it++)
-  {
-    visualization_msgs::Marker new_corner;
-    new_corner.header.stamp = ros::Time::now();
-    new_corner.header.frame_id = "/map";
-    new_corner.type = visualization_msgs::Marker::CUBE;
-    new_corner.color.r = (double)(*l_it)->getHits()/10;
-    new_corner.color.g = 0;
-    new_corner.color.b = 1 - (double)(*l_it)->getHits()/10;
-    new_corner.color.a = 1;//0.3 + 0.7*((double)(*l_it)->getHits()/10);
-    new_corner.ns = "/corners";
-    new_corner.id = i;
 
-    new_corner.pose.position.x = *(*l_it)->getPPtr()->getPtr();
-    new_corner.pose.position.y = *((*l_it)->getPPtr()->getPtr()+1);
-    new_corner.pose.position.z = 1.5;
-    new_corner.pose.orientation = tf::createQuaternionMsgFromYaw(*(*l_it)->getOPtr()->getPtr());
+    // LANDMARKS
+    i = 0;
+    corners_MarkerArray_msg_.markers.clear();
+    for (auto l_it = wolf_manager_->getProblemPtr()->getMapPtr()->getLandmarkListPtr()->begin(); l_it != wolf_manager_->getProblemPtr()->getMapPtr()->getLandmarkListPtr()->end(); l_it++)
+    {
+        visualization_msgs::Marker new_corner;
+        new_corner.header.stamp = ros::Time::now();
+        new_corner.header.frame_id = "/map";
+        new_corner.type = visualization_msgs::Marker::CUBE;
+        new_corner.color.r = (double)(*l_it)->getHits()/10;
+        new_corner.color.g = 0;
+        new_corner.color.b = 1 - (double)(*l_it)->getHits()/10;
+        new_corner.color.a = 1;//0.3 + 0.7*((double)(*l_it)->getHits()/10);
+        new_corner.ns = "/corners";
+        new_corner.id = i;
 
-    new_corner.scale.x = 0.5;
-    new_corner.scale.y = 0.5;
-    new_corner.scale.z = 3;
-    corners_MarkerArray_msg_.markers.push_back(new_corner);
+        new_corner.pose.position.x = *(*l_it)->getPPtr()->getPtr();
+        new_corner.pose.position.y = *((*l_it)->getPPtr()->getPtr()+1);
+        new_corner.pose.position.z = 1.5;
+        new_corner.pose.orientation = tf::createQuaternionMsgFromYaw(*(*l_it)->getOPtr()->getPtr());
 
-    i++;
-  }
-  //ROS_INFO("WolfAlgNode: %i Landmarks ", corners_MarkerArray_msg_.markers.size());
+        new_corner.scale.x = 0.5;
+        new_corner.scale.y = 0.5;
+        new_corner.scale.z = 3;
+        corners_MarkerArray_msg_.markers.push_back(new_corner);
+
+        i++;
+    }
+    //ROS_INFO("WolfAlgNode: %i Landmarks ", corners_MarkerArray_msg_.markers.size());
   
-  // [fill srv structure and make request to the server]
-  
-  // [fill action structure and make request to the action server]
+    // [fill srv structure and make request to the server]
+    
+    // [fill action structure and make request to the action server]
 
-  // [publish messages]
-  tfb_.sendTransform( tf::StampedTransform(T_localization_, ros::Time::now(), "map", "base") );
-  vehicle_publisher_.publish(this->vehicle_MarkerArray_msg_);
-  corners_publisher_.publish(this->corners_MarkerArray_msg_);
-  lines_publisher_.publish(this->lines_MarkerArray_msg_);
-  constraints_publisher_.publish(this->constraints_Marker_msg_);
+    // [publish messages]
+    tfb_.sendTransform( tf::StampedTransform(T_localization_, ros::Time::now(), "map", "base") );
+    vehicle_publisher_.publish(this->vehicle_MarkerArray_msg_);
+    corners_publisher_.publish(this->corners_MarkerArray_msg_);
+    lines_publisher_.publish(this->lines_MarkerArray_msg_);
+    constraints_publisher_.publish(this->constraints_Marker_msg_);
 
 }
 
 void WolfAlgNode::laser_1_callback(const sensor_msgs::LaserScan::ConstPtr& msg)
 {
-  //ROS_INFO("WolfAlgNode::laser_front_callback: New Message Received");
-  updateLaserParams(0, msg);
+    //ROS_INFO("WolfAlgNode::laser_front_callback: New Message Received");
+    updateLaserParams(0, msg);
 
-  //use appropiate mutex to shared variables if necessary
-  //this->alg_.lock();
-  //this->laser_1_mutex_enter();
-//  CaptureLaser2D* new_capture = new CaptureLaser2D(TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
-//                                                   laser_sensor_ptr_[0],
-//                                                   msg->ranges);
-//  wolf_manager_->addCapture(new_capture);
-//  computeLaserScan(new_capture, msg->header, 0);
+    //use appropiate mutex to shared variables if necessary
+    //this->alg_.lock();
+    //this->laser_1_mutex_enter();
+    //  CaptureLaser2D* new_capture = new CaptureLaser2D(TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
+    //                                                   laser_sensor_ptr_[0],
+    //                                                   msg->ranges);
+    //  wolf_manager_->addCapture(new_capture);
+    //  computeLaserScan(new_capture, msg->header, 0);
 
-  //unlock previously blocked shared variables
-  //this->alg_.unlock();
-  //this->laser_1_mutex_exit();
+    //unlock previously blocked shared variables
+    //this->alg_.unlock();
+    //this->laser_1_mutex_exit();
 }
 
 void WolfAlgNode::laser_1_mutex_enter(void)
 {
-  pthread_mutex_lock(&this->laser_1_mutex_);
+    pthread_mutex_lock(&this->laser_1_mutex_);
 }
 
 void WolfAlgNode::laser_1_mutex_exit(void)
 {
-  pthread_mutex_unlock(&this->laser_1_mutex_);
+    pthread_mutex_unlock(&this->laser_1_mutex_);
 }
 
 void WolfAlgNode::laser_2_callback(const sensor_msgs::LaserScan::ConstPtr& msg)
 {
-  //ROS_INFO("WolfAlgNode::laser_front_left_callback: New Message Received");
-  updateLaserParams(1, msg);
+    //ROS_INFO("WolfAlgNode::laser_front_left_callback: New Message Received");
+    updateLaserParams(1, msg);
 
-  //use appropiate mutex to shared variables if necessary
-  //this->alg_.lock();
-  this->laser_2_mutex_enter();
-  CaptureLaser2D* new_capture = new CaptureLaser2D(TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
-                                                   laser_sensor_ptr_[1],
-                                                   msg->ranges);
-  wolf_manager_->addCapture(new_capture);
-  computeLaserScan(new_capture, msg->header, 1);
+    //use appropiate mutex to shared variables if necessary
+    //this->alg_.lock();
+    this->laser_2_mutex_enter();
+    CaptureLaser2D* new_capture = new CaptureLaser2D(TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
+                                                    laser_sensor_ptr_[1],
+                                                    msg->ranges);
+    wolf_manager_->addCapture(new_capture);
+    computeLaserScan(new_capture, msg->header, 1);
 
-  //std::cout << msg->data << std::endl;
-  //unlock previously blocked shared variables
-  //this->alg_.unlock();
-  this->laser_2_mutex_exit();
+    //std::cout << msg->data << std::endl;
+    //unlock previously blocked shared variables
+    //this->alg_.unlock();
+    this->laser_2_mutex_exit();
 }
 
 void WolfAlgNode::laser_2_mutex_enter(void)
 {
-  pthread_mutex_lock(&this->laser_2_mutex_);
+    pthread_mutex_lock(&this->laser_2_mutex_);
 }
 
 void WolfAlgNode::laser_2_mutex_exit(void)
 {
-  pthread_mutex_unlock(&this->laser_2_mutex_);
+    pthread_mutex_unlock(&this->laser_2_mutex_);
 }
 
 /*  [subscriber callbacks] */
