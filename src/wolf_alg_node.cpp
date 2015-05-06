@@ -362,8 +362,8 @@ void WolfAlgNode::laser_2_callback(const sensor_msgs::LaserScan::ConstPtr& msg)
     //this->alg_.lock();
     this->laser_2_mutex_enter();
     CaptureLaser2D* new_capture = new CaptureLaser2D(TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
-                                                    laser_sensor_ptr_[1],
-                                                    msg->ranges);
+                                                     laser_sensor_ptr_[1], 
+                                                     msg->ranges);
     wolf_manager_->addCapture(new_capture);
     computeLaserScan(new_capture, msg->header, 1);
 
@@ -539,13 +539,14 @@ void WolfAlgNode::node_config_update(Config &config, uint32_t level)
   for (unsigned int laser_idx = 0; laser_idx < 6;laser_idx++)
   {
     laserscanutils::ExtractCornerParams corners_alg_params = laser_sensor_ptr_[laser_idx]->getCornerAlgParams();
-    corners_alg_params.segment_window_size = config.segment_window_size;
-    corners_alg_params.theta_min = config.theta_min;
-    corners_alg_params.theta_max_parallel = config.theta_max_parallel;
-    corners_alg_params.k_sigmas = config.k_sigmas;
-    corners_alg_params.max_beam_distance = config.max_beam_distance;
-    corners_alg_params.max_distance = config.max_distance;
-    laser_sensor_ptr_[laser_idx]->setCornerAlgParams(corners_alg_params);
+    corners_alg_params.theta_min_ = config.theta_min;
+    corners_alg_params.max_distance_ = config.max_distance;
+    corners_alg_params.line_params_.jump_dist_ut_ = config.max_distance; //TODO: To be added as a new param at .cfg file
+    corners_alg_params.line_params_.window_sz_ = config.segment_window_size; //TODO: change name at .cfg file
+    corners_alg_params.line_params_.k_sigmas_ut_ = config.k_sigmas;//TODO: change name at .cfg file
+    corners_alg_params.line_params_.concatenate_ii_ut_ = config.max_beam_distance;//TODO: change name at .cfg file
+    corners_alg_params.line_params_.concatenate_angle_ut_ = config.theta_max_parallel;//TODO: change name at .cfg file
+    laser_sensor_ptr_[laser_idx]->setCornerAlgParams(corners_alg_params);//TODO: change name at .cfg file
   }
   draw_lines_ = config.draw_lines;
   new_frame_elapsed_time_ = config.new_frame_elapsed_time;
