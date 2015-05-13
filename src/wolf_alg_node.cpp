@@ -34,15 +34,34 @@ WolfAlgNode::WolfAlgNode(void) :
     odom_sensor_pose_ = Eigen::Vector3s::Zero(); //odom sensor coniciding with vehicle base link  
     odom_sensor_ptr_ = new SensorOdom2D(&odom_sensor_point_, &odom_sensor_theta_, odom_std[0], odom_std[1]);//both arguments initialized on top
 
-    // init wolf laser sensors: TODO: Get poses from an urdf file through a tf::TransformListener object
+    // init wolf laser sensors: TODO: Get poses from published tf, through a tf::TransformListener object
     laser_sensor_pose_[0] << 3.5,0,0,0,0,0;
     laser_sensor_pose_[1] << 3.1,-0.78,0,0,0,-1.65806;//3.1 -0.78 0.5 yaw:-1.65806
     laser_sensor_pose_[2] << -0.5,-0.8,0,0,0,-1.46608;//-0.5 -0.8  0.5  yaw:-1.46608
     laser_sensor_pose_[3] << -0.9,0,0,0,0,-3.12414;//-0.9  0,   0.45 yaw:-3.12414
     laser_sensor_pose_[4] << -0.5,0.8,0,0,0,1.48353;//-0.5 -0.8  0.5  yaw:1.48353
     laser_sensor_pose_[5] << 3.1,0.8,0,0,0,1.64388;//3.1  0.8  0.55 yaw:1.64388
+    
+    std::stringstream lidar_frame_name_ii; 
+    tf::StampedTransform base_2_lidar_ii; 
     for (uint ii = 0; ii<6; ii++)
     {
+//         //build name
+//         lidar_frame_name_ii << "/ibeo" << ii+1;
+//         
+//         //look up for transform from base to ibeo
+//         if ( tfl_.waitForTransform("base", lidar_frame_name_ii.str(), ros::Time::now(), ros::Duration(0.1)) )
+//         {
+//             tfl_.lookupTransform("base", lidar_frame_name_ii.str(), ros::Time::now(), base_2_lidar_ii);
+//         }
+// 
+//         //Set mounting frame. Fill translation part
+//         laser_sensor_pose_[ii].head(3) << base_2_lidar_ii.getOrigin().x(),base_2_lidar_ii.getOrigin().y(),base_2_lidar_ii.getOrigin().z();
+//         
+//         //Set mounting frame. Fill rotation part. Assumes rotation only over vertical axis (0,0,1), so angle is directly yaw
+//         laser_sensor_pose_[ii].tail(1) << base_2_lidar_ii.getRotation().getAngle(); 
+        
+        //set wolf states and sensors
         laser_sensor_point_[ii] = new StatePoint2D(laser_sensor_pose_[ii].data());
         laser_sensor_theta_[ii] = new StateTheta(&laser_sensor_pose_[ii](5));
         laser_sensor_ptr_[ii] = new SensorLaser2D(laser_sensor_point_[ii], laser_sensor_theta_[ii]);
@@ -102,13 +121,15 @@ WolfAlgNode::WolfAlgNode(void) :
     lines_colors_[5].r = 0; lines_colors_[5].g = 1; lines_colors_[5].b = 1; lines_colors_[5].a = 1;
     for (unsigned int i=0; i<6; i++)
     {
-        visualization_msgs::Marker line_list;
-        line_list.type = visualization_msgs::Marker::LINE_LIST;
-        line_list.scale.x = 0.1;
-        line_list.color = lines_colors_[i];
-        line_list.ns = "/lines";
-        line_list.id = i;
-        lines_MarkerArray_msg_.markers.push_back(line_list);
+        visualization_msgs::Marker line_list_Marker_msg;
+        line_list_Marker_msg.header.stamp = ros::Time::now();
+        line_list_Marker_msg.header.frame_id = "/odom";
+        line_list_Marker_msg.type = visualization_msgs::Marker::LINE_LIST;
+        line_list_Marker_msg.scale.x = 0.1;
+        line_list_Marker_msg.color = lines_colors_[i];
+        line_list_Marker_msg.ns = "/lines";
+        line_list_Marker_msg.id = i;
+        lines_MarkerArray_msg_.markers.push_back(line_list_Marker_msg);
     }
     
     // odom vehicle

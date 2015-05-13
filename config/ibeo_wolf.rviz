@@ -24,7 +24,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Back R b LaserScan
+    SyncSource: All ibeo
 Visualization Manager:
   Class: ""
   Displays:
@@ -495,7 +495,7 @@ Visualization Manager:
       Marker Topic: /iri_wolf/lines
       Name: Lines
       Namespaces:
-        {}
+        /lines: true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -538,22 +538,22 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 82.1627
+      Distance: 70.2358
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 32.5099
-        Y: 39.3689
-        Z: 21.052
+        X: 5.65855
+        Y: 4.87089
+        Z: 1.10062
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.779801
+      Pitch: 0.479801
       Target Frame: vehicle
       Value: Orbit (rviz)
-      Yaw: 5.31678
+      Yaw: 5.23678
     Saved: ~
 Window Geometry:
   Displays:
