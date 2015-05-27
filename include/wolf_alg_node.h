@@ -25,7 +25,10 @@
 #ifndef _wolf_alg_node_h_
 #define _wolf_alg_node_h_
 
+//iri base 
 #include <iri_base_algorithm/iri_base_algorithm.h>
+
+//this package
 #include "wolf_alg.h"
 
 // [publisher subscriber headers]
@@ -57,30 +60,31 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
     CeresManager* ceres_manager_;
     
     //Wolf: odom sensors
-    Eigen::Vector3s odom_sensor_pose_; //it could be part of the state at wolf_manager_->WolfProblem.state_
-    StatePoint2D odom_sensor_point_;
+    Eigen::Vector4s odom_sensor_pose_; //xyz+theta. It could be part of the state at wolf_manager_->WolfProblem.state_
+    StatePoint3D odom_sensor_point_;
     StateTheta odom_sensor_theta_;
     SensorOdom2D* odom_sensor_ptr_;
     
     //Wolf: laser sensors
-    std::vector<Eigen::Vector6s> laser_sensor_pose_;
-    std::vector<StatePoint2D*> laser_sensor_point_;
-    std::vector<StateTheta*> laser_sensor_theta_;
+    std::vector<Eigen::Vector7s> laser_sensor_pose_;
+    std::vector<StatePoint3D*> laser_sensor_point_;
+    //std::vector<StateTheta*> laser_sensor_theta_;
+    std::vector<StateQuaternion*> laser_sensor_orientation_;
     std::vector<SensorLaser2D*> laser_sensor_ptr_;
-    std::vector<bool> laser_params_setted_;    
+    std::vector<bool> laser_params_set_;    
 
     //Wolf: manager
     WolfManager* wolf_manager_;
     
     //visualization
-    std::vector<std_msgs::ColorRGBA> lines_colors_;
+    std::vector<std_msgs::ColorRGBA> line_colors_;
 
     //transforms
     tf::TransformBroadcaster tfb_;
     tf::TransformListener    tfl_;
-    tf::Transform T_odom_;
-    tf::Transform T_localization_;
-    tf::Transform T_map_base_;
+    tf::Transform T_map2base_; //wolf output
+    tf::Transform T_odom2base_; //published by odom source
+    tf::Transform T_map2odom_; //to be broadcasted by this node
 
     // [publisher attributes]
     ros::Publisher lines_publisher_;
@@ -96,6 +100,22 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
     visualization_msgs::MarkerArray vehicle_MarkerArray_msg_;
 
     // [subscriber attributes]
+
+    //Odometry callback
+    ros::Subscriber relative_odometry_subscriber_;
+    void relative_odometry_callback(const nav_msgs::Odometry::ConstPtr& msg);
+    pthread_mutex_t relative_odometry_mutex_;
+    void relative_odometry_mutex_enter(void);
+    void relative_odometry_mutex_exit(void);
+
+    //Lidar callbacks
+    std::vector<ros::Subscriber> laser_subscribers_;
+    std::vector<pthread_mutex_t> laser_mutexes_;
+    void laser_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
+    void laser_mutex_enter(unsigned int _id);
+    void laser_mutex_exit(unsigned int _id);
+
+/*
     ros::Subscriber laser_1_subscriber_;
     void laser_1_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
     pthread_mutex_t laser_1_mutex_;
@@ -131,12 +151,7 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
     pthread_mutex_t laser_6_mutex_;
     void laser_6_mutex_enter(void);
     void laser_6_mutex_exit(void);
-
-    ros::Subscriber relative_odometry_subscriber_;
-    void relative_odometry_callback(const nav_msgs::Odometry::ConstPtr& msg);
-    pthread_mutex_t relative_odometry_mutex_;
-    void relative_odometry_mutex_enter(void);
-    void relative_odometry_mutex_exit(void);
+*/
 
     // [service attributes]
 

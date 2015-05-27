@@ -443,51 +443,51 @@ Visualization Manager:
     - Class: rviz/Axes
       Enabled: true
       Length: 1
-      Name: Front ibeo
+      Name: Front_Lidar
       Radius: 0.1
-      Reference Frame: ibeo1
+      Reference Frame: agv_lidar0
       Value: true
     - Class: rviz/Axes
       Enabled: true
       Length: 1
-      Name: Front R ibeo
+      Name: Front_R_Lidar
       Radius: 0.1
-      Reference Frame: ibeo2
+      Reference Frame: agv_lidar1
       Value: true
     - Class: rviz/Axes
       Enabled: true
       Length: 1
-      Name: Front L ibeo
+      Name: Back_R_Lidar
       Radius: 0.1
-      Reference Frame: ibeo6
+      Reference Frame: agv_lidar2
       Value: true
     - Class: rviz/Axes
       Enabled: true
       Length: 1
-      Name: Back L ibeo
+      Name: Back_Lidar
       Radius: 0.1
-      Reference Frame: ibeo5
+      Reference Frame: agv_lidar3
       Value: true
     - Class: rviz/Axes
       Enabled: true
       Length: 1
-      Name: Back R ibeo
+      Name: Back_L_Lidar
       Radius: 0.1
-      Reference Frame: ibeo3
+      Reference Frame: agv_lidar4
       Value: true
     - Class: rviz/Axes
       Enabled: true
       Length: 1
-      Name: Back ibeo
+      Name: Front_L_Lidar
       Radius: 0.1
-      Reference Frame: ibeo4
+      Reference Frame: agv_lidar5
       Value: true
     - Class: rviz/MarkerArray
       Enabled: true
       Marker Topic: /iri_wolf/corners
       Name: Corners
       Namespaces:
-        /corners: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -517,7 +517,7 @@ Visualization Manager:
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: base
+    Fixed Frame: agv_base_link
     Frame Rate: 30
   Name: root
   Tools:
@@ -538,22 +538,22 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 70.2358
+      Distance: 43.8744
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 5.65855
-        Y: 4.87089
-        Z: 1.10062
+        X: 9.06813
+        Y: -5.71709
+        Z: 9.26504
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.479801
+      Pitch: 0.529801
       Target Frame: vehicle
       Value: Orbit (rviz)
-      Yaw: 5.23678
+      Yaw: 5.3568
     Saved: ~
 Window Geometry:
   Displays:

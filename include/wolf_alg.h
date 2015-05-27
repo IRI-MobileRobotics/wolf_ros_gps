@@ -25,10 +25,12 @@
 #ifndef _wolf_alg_h_
 #define _wolf_alg_h_
 
+//this package
 #include <iri_wolf/WolfConfig.h>
 
 //include wolf_alg main library
 #include "wolf/wolf_manager.h"
+#include "wolf/ceres_wrapper/ceres_manager.h"
 #include "wolf/ceres_wrapper/ceres_manager.h"
 
 //Ceres includes
