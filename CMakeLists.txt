@@ -96,6 +96,7 @@ include_directories(include
                     ${laser_scan_utils_INCLUDE_DIRS}
                     ${wolf_INCLUDE_DIRS})
 message("wolf_INCLUDE_DIRS: ${wolf_INCLUDE_DIRS}")
+message("laser_scan_utils_INCLUDE_DIRS: ${laser_scan_utils_INCLUDE_DIRS}")
                     
 ## Declare a cpp library
 # add_library(${PROJECT_NAME} <list of source files>)

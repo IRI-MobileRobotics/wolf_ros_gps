@@ -3,7 +3,8 @@ Panels:
     Help Height: 78
     Name: Displays
     Property Tree Widget:
-      Expanded: ~
+      Expanded:
+        - /Odometry1
       Splitter Ratio: 0.5
     Tree Height: 745
   - Class: rviz/Selection
@@ -49,13 +50,13 @@ Visualization Manager:
     - Angle Tolerance: 0.1
       Class: rviz/Odometry
       Color: 170; 17; 53
-      Enabled: false
+      Enabled: true
       Keep: 0
-      Length: 2
+      Length: 10
       Name: Odometry
       Position Tolerance: 0.1
       Topic: /iri_ibeo_pointcloud_2_laserscan/odom
-      Value: false
+      Value: true
     - Alpha: 0.5
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -487,7 +488,7 @@ Visualization Manager:
       Marker Topic: /iri_wolf/corners
       Name: Corners
       Namespaces:
-        {}
+        /corners: true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -538,22 +539,22 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 43.8744
+      Distance: 154.013
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 9.06813
-        Y: -5.71709
-        Z: 9.26504
+        X: -14.7508
+        Y: 66.2991
+        Z: 13.6518
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.529801
+      Pitch: 1.3948
       Target Frame: vehicle
       Value: Orbit (rviz)
-      Yaw: 5.3568
+      Yaw: 6.2518
     Saved: ~
 Window Geometry:
   Displays:
