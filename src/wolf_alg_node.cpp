@@ -86,8 +86,8 @@ WolfAlgNode::WolfAlgNode(void) :
     }
 
     //create the manager
-    wolf_manager_ = new WolfManager(state_initial_length, odom_sensor_ptr_,Eigen::Vector3s::Zero(), 
-                                    Eigen::Matrix3s::Identity()*0.01, window_length_, new_frame_elapsed_time_, false);
+    wolf_manager_ = new WolfManager<StatePoint2D, StateTheta>(state_initial_length, odom_sensor_ptr_,Eigen::Vector3s::Zero(),
+                                    Eigen::Matrix3s::Identity()*0.01, window_length_, new_frame_elapsed_time_);
 
     // [init publishers]
     this->lines_publisher_ = this->public_node_handle_.advertise<visualization_msgs::MarkerArray>("lines", 1);
@@ -254,7 +254,7 @@ void WolfAlgNode::mainNodeThread(void)
     map2base.setOrigin( tf::Vector3(vehicle_pose(0), vehicle_pose(1), 0) ); 
     map2base.setRotation( tf::createQuaternionFromYaw(vehicle_pose(2)) );
     
-    std::cout << "Loc: (" << vehicle_pose(0) << "," << vehicle_pose(1) << "," << vehicle_pose(2) << ")" << std::endl;
+    //std::cout << "Loc: (" << vehicle_pose(0) << "," << vehicle_pose(1) << "," << vehicle_pose(2) << ")" << std::endl;
     
     //base2map: invert map2base to get base2map (map wrt base), and stamp it
     tf::Stamped<tf::Pose> base2map(map2base.inverse(), loc_stamp, "agv_base_link");
@@ -389,6 +389,7 @@ void WolfAlgNode::relative_odometry_callback(const nav_msgs::Odometry::ConstPtr&
   //this->alg_.lock();
   this->relative_odometry_mutex_enter();
   wolf_manager_->addCapture(new CaptureOdom2D(TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
+                                              TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
                                               odom_sensor_ptr_,
                                               Eigen::Vector3s(msg->pose.pose.position.x,0.0,tf::getYaw(msg->pose.pose.orientation))));
 

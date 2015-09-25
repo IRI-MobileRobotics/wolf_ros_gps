@@ -74,7 +74,7 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
     std::vector<bool> laser_params_set_;    
 
     //Wolf: manager
-    WolfManager* wolf_manager_;
+    WolfManager<StatePoint2D, StateTheta>* wolf_manager_;
     
     //visualization
     std::vector<std_msgs::ColorRGBA> line_colors_;
