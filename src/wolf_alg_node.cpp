@@ -340,30 +340,41 @@ void WolfAlgNode::mainNodeThread(void)
     // MARKERS LANDMARKS
     ii = 0;
     corners_MarkerArray_msg_.markers.clear();
-    visualization_msgs::Marker new_corner;
+    visualization_msgs::Marker new_landmark;
     for (auto l_it = wolf_manager_->getProblemPtr()->getMapPtr()->getLandmarkListPtr()->begin(); 
          l_it != wolf_manager_->getProblemPtr()->getMapPtr()->getLandmarkListPtr()->end(); 
          l_it++, ii++)
     {
-        new_corner.header.stamp = loc_stamp;
-        new_corner.header.frame_id = "map";
-        new_corner.type = visualization_msgs::Marker::CUBE;
-        new_corner.color.r = (double)(*l_it)->getHits()/10;
-        new_corner.color.g = 0;
-        new_corner.color.b = 1 - (double)(*l_it)->getHits()/10;
-        new_corner.color.a = 1;//0.3 + 0.7*((double)(*l_it)->getHits()/10);
-        new_corner.ns = "/corners";
-        new_corner.id = ii;
+        new_landmark.header.stamp = loc_stamp;
+        new_landmark.header.frame_id = "map";
+        new_landmark.type = visualization_msgs::Marker::CUBE;
+        new_landmark.color.r = (double)(*l_it)->getHits()/10;
+        new_landmark.color.g = 0;
+        new_landmark.color.b = 1 - (double)(*l_it)->getHits()/10;
+        new_landmark.color.a = 1;//0.3 + 0.7*((double)(*l_it)->getHits()/10);
+        new_landmark.ns = "/landmarks";
+        new_landmark.id = ii;
 
-        new_corner.pose.position.x = *(*l_it)->getPPtr()->getPtr();
-        new_corner.pose.position.y = *((*l_it)->getPPtr()->getPtr()+1);
-        new_corner.pose.position.z = 1.5;
-        new_corner.pose.orientation = tf::createQuaternionMsgFromYaw(*(*l_it)->getOPtr()->getPtr());
+        new_landmark.pose.position.x = *(*l_it)->getPPtr()->getPtr();
+        new_landmark.pose.position.y = *((*l_it)->getPPtr()->getPtr()+1);
+        new_landmark.pose.position.z = 1.5;
+        new_landmark.pose.orientation = tf::createQuaternionMsgFromYaw(*(*l_it)->getOPtr()->getPtr());
 
-        new_corner.scale.x = 0.5;
-        new_corner.scale.y = 0.5;
-        new_corner.scale.z = 3;
-        corners_MarkerArray_msg_.markers.push_back(new_corner);
+
+        if ((*l_it)->getType() == LANDMARK_CORNER)
+        {
+            new_landmark.scale.x = 0.5;
+            new_landmark.scale.y = 0.5;
+            new_landmark.scale.z = 3;
+        }
+        else if ((*l_it)->getType() == LANDMARK_CONTAINER)
+        {
+            new_landmark.scale.x = (*l_it)->getDescriptor()(1);
+            new_landmark.scale.y = (*l_it)->getDescriptor()(0);
+            new_landmark.scale.z = 3;
+        }
+
+        corners_MarkerArray_msg_.markers.push_back(new_landmark);
     }
     //ROS_INFO("WolfAlgNode: %i Landmarks ", corners_MarkerArray_msg_.markers.size());
   
