@@ -46,7 +46,7 @@ WolfAlgNode::WolfAlgNode(void) :
 //     laser_sensor_pose_[5] << 3.1,0.8,0,0,0,1.64388;//3.1  0.8  0.55 yaw:1.64388
     std::stringstream lidar_frame_name_ii; 
     tf::StampedTransform base_2_lidar_ii; 
-    for (uint ii = 0; ii<6; ii++)
+    for (unsigned int ii = 0; ii<6; ii++)
     {
         //build name
         lidar_frame_name_ii.str("");
@@ -81,7 +81,7 @@ WolfAlgNode::WolfAlgNode(void) :
         }
         else
         {
-            std::cout << "WARNING: No TF found from agv_base_link to " << lidar_frame_name_ii.str() << std::endl << std::endl;
+            ROS_WARN("No TF found from agv_base_link to %s",lidar_frame_name_ii.str().c_str());
         }
     }
 
@@ -442,7 +442,8 @@ void WolfAlgNode::laser_callback(const sensor_msgs::LaserScan::ConstPtr& msg)
         wolf_manager_->addCapture(new_capture);
         
         //just compute lines for viuslization purposes. TODO: To be removed from here and get lines from visualization somewhere from wolf objects
-        //computeLaserScan(new_capture, msg->header, lidar_id);
+        if (draw_lines_)
+            computeLaserScan(new_capture, msg->header, lidar_id);
 
         //std::cout << msg->data << std::endl;
         //unlock previously blocked shared variables
@@ -657,6 +658,7 @@ void WolfAlgNode::node_config_update(Config &config, uint32_t level)
             corners_alg_params.max_distance_ = config.max_distance;
             corners_alg_params.line_params_.jump_dist_ut_ = config.max_distance; //TODO: To be added as a new param at .cfg file
             corners_alg_params.line_params_.window_sz_ = config.segment_window_size; //TODO: change name at .cfg file
+            corners_alg_params.line_params_.min_window_points_ = config.min_window_points;
             corners_alg_params.line_params_.k_sigmas_ut_ = config.k_sigmas;//TODO: change name at .cfg file
             corners_alg_params.line_params_.concatenate_ii_ut_ = config.max_beam_distance;//TODO: change name at .cfg file
             corners_alg_params.line_params_.concatenate_angle_ut_ = config.theta_max_parallel;//TODO: change name at .cfg file
@@ -699,8 +701,6 @@ void WolfAlgNode::updateLaserParams(const unsigned int _laser_idx, const sensor_
 
 void WolfAlgNode::computeLaserScan(CaptureLaser2D* new_capture, const std_msgs::Header & header, const unsigned int laser_idx)
 {
-  if (draw_lines_)
-  {
     std::list<laserscanutils::Line> line_list;
     new_capture->extractLines(line_list);
 
@@ -720,7 +720,6 @@ void WolfAlgNode::computeLaserScan(CaptureLaser2D* new_capture, const std_msgs::
       lines_MarkerArray_msg_.markers[laser_idx].points.push_back(point1);
       lines_MarkerArray_msg_.markers[laser_idx].points.push_back(point2);
     }
-  }
 }
 
 
