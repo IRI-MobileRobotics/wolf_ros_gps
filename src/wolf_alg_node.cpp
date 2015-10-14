@@ -6,11 +6,12 @@ WolfAlgNode::WolfAlgNode(void) :
     odom_sensor_point_(odom_sensor_pose_.data()),
     odom_sensor_theta_(&odom_sensor_pose_(3)),
     laser_sensor_pose_(6),
-    laser_sensor_point_(6),
+    laser_sensor_point_({nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}),
     //laser_sensor_theta_(6),
-    laser_sensor_orientation_(6),
-    laser_sensor_ptr_(6),
+    laser_sensor_orientation_({nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}),
+    laser_sensor_ptr_({nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}),
     laser_params_set_({false, false, false, false, false, false}),
+    laser_tf_loaded_({false, false, false, false, false, false}),
     line_colors_(6),
     draw_lines_(false), 
     laser_subscribers_(6), 
@@ -20,7 +21,7 @@ WolfAlgNode::WolfAlgNode(void) :
     WolfScalar odom_std[2];
     int state_initial_length;
     public_node_handle_.param<int>("window_length", window_length_, 35);
-    public_node_handle_.param<double>("odometry_translational_std", odom_std[0], 0.1);
+    public_node_handle_.param<double>("odometry_translational_std", odom_std[0], 0.2);
     public_node_handle_.param<double>("odometry_rotational_std", odom_std[1], 0.2);
     public_node_handle_.param<int>("state_initial_length", state_initial_length, 1e6);
     this->loop_rate_ = 10;//in [Hz] ToDo: should be an input parameter from cfg
@@ -37,63 +38,19 @@ WolfAlgNode::WolfAlgNode(void) :
     odom_sensor_pose_ = Eigen::Vector4s::Zero(); //odom sensor coniciding with vehicle base link: xyz + theta
     odom_sensor_ptr_ = new SensorOdom2D(&odom_sensor_point_, &odom_sensor_theta_, odom_std[0], odom_std[1]);//both arguments initialized on top
 
-    // init wolf laser sensors:
-//     laser_sensor_pose_[0] << 3.5,0,0,0,0,0;
-//     laser_sensor_pose_[1] << 3.1,-0.78,0,0,0,-1.65806;//3.1 -0.78 0.5 yaw:-1.65806
-//     laser_sensor_pose_[2] << -0.5,-0.8,0,0,0,-1.46608;//-0.5 -0.8  0.5  yaw:-1.46608
-//     laser_sensor_pose_[3] << -0.9,0,0,0,0,-3.12414;//-0.9  0,   0.45 yaw:-3.12414
-//     laser_sensor_pose_[4] << -0.5,0.8,0,0,0,1.48353;//-0.5 -0.8  0.5  yaw:1.48353
-//     laser_sensor_pose_[5] << 3.1,0.8,0,0,0,1.64388;//3.1  0.8  0.55 yaw:1.64388
-    std::stringstream lidar_frame_name_ii; 
-    tf::StampedTransform base_2_lidar_ii; 
+    //loads the tf of all lasers
     for (unsigned int ii = 0; ii<6; ii++)
-    {
-        //build name
-        lidar_frame_name_ii.str("");
-        lidar_frame_name_ii << "agv_lidar" << ii;
-        
-        //look up for transform from base to ibeo
-        //std::cout << "waiting for transform: " << lidar_frame_name_ii.str() << std::endl;
-        if ( tfl_.waitForTransform("agv_base_link", lidar_frame_name_ii.str(), ros::Time(0), ros::Duration(1.)) )
-        {
-            //look up for transform at TF
-            tfl_.lookupTransform("agv_base_link", lidar_frame_name_ii.str(), ros::Time(0), base_2_lidar_ii);
-
-            //Set mounting frame. Fill translation part
-            laser_sensor_pose_[ii].head(3) << base_2_lidar_ii.getOrigin().x(),base_2_lidar_ii.getOrigin().y(),base_2_lidar_ii.getOrigin().z();
-            
-            //Set mounting frame. Fill quaternion representing rotation part.
-            //laser_sensor_pose_[ii].tail(3) << 0,0,base_2_lidar_ii.getRotation().getAngle();//assumes rotation only in Z (2D)
-            laser_sensor_pose_[ii].tail(4) << base_2_lidar_ii.getRotation().getX(),
-                                              base_2_lidar_ii.getRotation().getY(),
-                                              base_2_lidar_ii.getRotation().getZ(),
-                                              base_2_lidar_ii.getRotation().getW();
-            
-            //DEBUG: prints 2D lidar pose
-            //std::cout << "LIDAR " << ii << ": " << lidar_frame_name_ii.str() << ": " << laser_sensor_pose_[ii].transpose() << std::endl;
-            
-            //set wolf states and sensors
-            laser_sensor_point_[ii] = new StatePoint3D(laser_sensor_pose_[ii].data());
-            //laser_sensor_theta_[ii] = new StateTheta(&laser_sensor_pose_[ii](5));
-            laser_sensor_orientation_[ii] = new StateQuaternion(&laser_sensor_pose_[ii](3));
-            //laser_sensor_ptr_[ii] = new SensorLaser2D(laser_sensor_point_[ii], laser_sensor_theta_[ii]);
-            laser_sensor_ptr_[ii] = new SensorLaser2D(laser_sensor_point_[ii], laser_sensor_orientation_[ii]);
-        }
-        else
-        {
-            ROS_WARN("No TF found from agv_base_link to %s",lidar_frame_name_ii.str().c_str());
-        }
-    }
+        loadLaserTf(ii);
 
     //create the manager
     wolf_manager_ = new WolfManager<StatePoint2D, StateTheta>(state_initial_length, odom_sensor_ptr_,Eigen::Vector3s::Zero(),
                                     Eigen::Matrix3s::Identity()*0.01, window_length_, new_frame_elapsed_time_);
 
     // [init publishers]
-    this->lines_publisher_ = this->public_node_handle_.advertise<visualization_msgs::MarkerArray>("lines", 1);
-    this->constraints_publisher_ = this->public_node_handle_.advertise<visualization_msgs::Marker>("constraints", 1);
-    this->corners_publisher_ = this->public_node_handle_.advertise<visualization_msgs::MarkerArray>("corners", 1);
-    this->vehicle_publisher_ = this->public_node_handle_.advertise<visualization_msgs::MarkerArray>("vehicle", 1);
+    this->lines_publisher_ = this->public_node_handle_.advertise<visualization_msgs::MarkerArray>("lines", 2);
+    this->constraints_publisher_ = this->public_node_handle_.advertise<visualization_msgs::Marker>("constraints", 2);
+    this->corners_publisher_ = this->public_node_handle_.advertise<visualization_msgs::MarkerArray>("corners", 2);
+    this->vehicle_publisher_ = this->public_node_handle_.advertise<visualization_msgs::MarkerArray>("vehicle", 2);
     
     // Broadcast 0 transform to align frames initially
     T_map2base_ = tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(0,0,0));
@@ -230,7 +187,12 @@ WolfAlgNode::~WolfAlgNode(void)
 void WolfAlgNode::mainNodeThread(void)
 {
     //std::cout << "mainNodeThread(): " << __LINE__ << std::endl;
-    
+
+    //loads the tf of all lasers in case they are not loaded yet
+    for (unsigned int ii = 0; ii<6; ii++)
+        if (!laser_tf_loaded_[ii])
+            loadLaserTf(ii);
+
     //lock everyone
     relative_odometry_mutex_enter();
     for (unsigned int ii=0; ii<6; ii++) laser_mutex_enter(ii);
@@ -239,6 +201,8 @@ void WolfAlgNode::mainNodeThread(void)
     wolf_manager_->update();
     ceres_manager_->update(wolf_manager_->getProblemPtr());
     ceres::Solver::Summary summary = ceres_manager_->solve(ceres_options_);
+    //std::cout << summary.FullReport() << std::endl;
+    ceres_manager_->computeCovariances(wolf_manager_->getProblemPtr());
 
     //unlock everyone
     relative_odometry_mutex_exit();    
@@ -255,7 +219,7 @@ void WolfAlgNode::mainNodeThread(void)
     map2base.setRotation( tf::createQuaternionFromYaw(vehicle_pose(2)) );
     
     //std::cout << "Loc: (" << vehicle_pose(0) << "," << vehicle_pose(1) << "," << vehicle_pose(2) << ")" << std::endl;
-    
+
     //base2map: invert map2base to get base2map (map wrt base), and stamp it
     tf::Stamped<tf::Pose> base2map(map2base.inverse(), loc_stamp, "agv_base_link");
     
@@ -275,7 +239,7 @@ void WolfAlgNode::mainNodeThread(void)
         
     }
     //End Broadcast transform -----------------------------------------------------------------------------
-    
+
     // [fill msg structures]
 
     // MARKERS VEHICLE & CONSTRAINTS
@@ -285,18 +249,18 @@ void WolfAlgNode::mainNodeThread(void)
     unsigned int ii = 1; //start to 1 to do not modify vehicle_MarkerArray_msg_.marker[0], since it is already at agv_base_link
     geometry_msgs::Point point1, point2;
     for (auto fr_it = wolf_manager_->getProblemPtr()->getTrajectoryPtr()->getFrameListPtr()->rbegin(); 
-         fr_it != wolf_manager_->getProblemPtr()->getTrajectoryPtr()->getFrameListPtr()->rend() && ii <= window_length_+1; 
+         fr_it != wolf_manager_->getProblemPtr()->getTrajectoryPtr()->getFrameListPtr()->rend() && ii <= window_length_;
          fr_it++, ii++) //runs the list of frames in reverse order, from the head (current) to the tail (former)
     {
         // VEHICLES
         vehicle_MarkerArray_msg_.markers[ii].action = visualization_msgs::Marker::MODIFY;
         vehicle_MarkerArray_msg_.markers[ii].header.stamp = loc_stamp;
         vehicle_MarkerArray_msg_.markers[ii].header.frame_id = "map";
-        vehicle_MarkerArray_msg_.markers[ii].pose.position.x = *((*fr_it)->getPPtr()->getPtr())+1.3*cos( *((*fr_it)->getOPtr()->getPtr()) );
-        vehicle_MarkerArray_msg_.markers[ii].pose.position.y = *((*fr_it)->getPPtr()->getPtr()+1)+1.3*sin( *((*fr_it)->getOPtr()->getPtr()) );
-        vehicle_MarkerArray_msg_.markers[ii].pose.orientation = tf::createQuaternionMsgFromYaw( *((*fr_it)->getOPtr()->getPtr()) );
+        vehicle_MarkerArray_msg_.markers[ii].pose.position.x = *((*fr_it)->getPPtr()->getPtr())+1.3*cos( (*fr_it)->getOPtr()->getYaw() );
+        vehicle_MarkerArray_msg_.markers[ii].pose.position.y = *((*fr_it)->getPPtr()->getPtr()+1)+1.3*sin( (*fr_it)->getOPtr()->getYaw() );
+        vehicle_MarkerArray_msg_.markers[ii].pose.orientation = tf::createQuaternionMsgFromYaw( (*fr_it)->getOPtr()->getYaw() );
         vehicle_MarkerArray_msg_.markers[ii].color.a = 0.5; //Show with little transparency
-        
+
         // CONSTRAINTS (odometry)
         point1.x = *(*fr_it)->getPPtr()->getPtr();
         point1.y = *((*fr_it)->getPPtr()->getPtr()+1);
@@ -336,7 +300,7 @@ void WolfAlgNode::mainNodeThread(void)
             }
         }
     }
-    
+
     // MARKERS LANDMARKS
     ii = 0;
     corners_MarkerArray_msg_.markers.clear();
@@ -351,7 +315,7 @@ void WolfAlgNode::mainNodeThread(void)
         new_landmark.color.r = (double)(*l_it)->getHits()/10;
         new_landmark.color.g = 0;
         new_landmark.color.b = 1 - (double)(*l_it)->getHits()/10;
-        new_landmark.color.a = 1;//0.3 + 0.7*((double)(*l_it)->getHits()/10);
+        new_landmark.color.a = 0.5;//0.3 + 0.7*((double)(*l_it)->getHits()/10);
         new_landmark.ns = "/landmarks";
         new_landmark.id = ii;
 
@@ -387,7 +351,6 @@ void WolfAlgNode::mainNodeThread(void)
     corners_publisher_.publish(this->corners_MarkerArray_msg_);
     lines_publisher_.publish(this->lines_MarkerArray_msg_);
     constraints_publisher_.publish(this->constraints_Marker_msg_);
-
 }
 
 /*  [subscriber callbacks] */
@@ -426,12 +389,13 @@ void WolfAlgNode::laser_callback(const sensor_msgs::LaserScan::ConstPtr& msg)
     //get the id from the message header 
     const char lidar_id_c = msg->header.frame_id.back(); 
     unsigned int lidar_id = atoi(&lidar_id_c); 
-    //std::cout << "laser_callback() starts. lidar_id: " << msg->header.frame_id << ", " << lidar_id_c << ", " << lidar_id << std::endl;
+    //std::cout << "laser_callback() starts. lidar_id: " << lidar_id << std::endl;
     
     if ( laser_sensor_ptr_[lidar_id] != nullptr ) //checks that the sensor exists
     {
         //updates laser scan params in case they are not set yet
-        updateLaserParams(lidar_id, msg);
+        if (!laser_params_set_[lidar_id])
+            updateLaserParams(lidar_id, msg);
 
         //lock appropiate mutex to shared variables if necessary
         laser_mutex_enter(lidar_id);
@@ -462,183 +426,6 @@ void WolfAlgNode::laser_mutex_exit(unsigned int _id)
     pthread_mutex_unlock(&this->laser_mutexes_[_id]);
 }
 
-/*
-void WolfAlgNode::laser_1_callback(const sensor_msgs::LaserScan::ConstPtr& msg)
-{
-    //ROS_INFO("WolfAlgNode::laser_front_callback: New Message Received");
-    updateLaserParams(0, msg);
-
-    //use appropiate mutex to shared variables if necessary
-    //this->alg_.lock();
-    //this->laser_1_mutex_enter();
-    //  CaptureLaser2D* new_capture = new CaptureLaser2D(TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
-    //                                                   laser_sensor_ptr_[0],
-    //                                                   msg->ranges);
-    //  wolf_manager_->addCapture(new_capture);
-    //  computeLaserScan(new_capture, msg->header, 0);
-
-    //unlock previously blocked shared variables
-    //this->alg_.unlock();
-    //this->laser_1_mutex_exit();
-}
-
-void WolfAlgNode::laser_1_mutex_enter(void)
-{
-    pthread_mutex_lock(&this->laser_1_mutex_);
-}
-
-void WolfAlgNode::laser_1_mutex_exit(void)
-{
-    pthread_mutex_unlock(&this->laser_1_mutex_);
-}
-
-void WolfAlgNode::laser_2_callback(const sensor_msgs::LaserScan::ConstPtr& msg)
-{
-    //ROS_INFO("WolfAlgNode::laser_front_left_callback: New Message Received");
-    updateLaserParams(1, msg);
-
-    //use appropiate mutex to shared variables if necessary
-    //this->alg_.lock();
-    this->laser_2_mutex_enter();
-    CaptureLaser2D* new_capture = new CaptureLaser2D(TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
-                                                     laser_sensor_ptr_[1], 
-                                                     msg->ranges);
-    wolf_manager_->addCapture(new_capture);
-    computeLaserScan(new_capture, msg->header, 1);
-
-    //std::cout << msg->data << std::endl;
-    //unlock previously blocked shared variables
-    //this->alg_.unlock();
-    this->laser_2_mutex_exit();
-}
-
-void WolfAlgNode::laser_2_mutex_enter(void)
-{
-    pthread_mutex_lock(&this->laser_2_mutex_);
-}
-
-void WolfAlgNode::laser_2_mutex_exit(void)
-{
-    pthread_mutex_unlock(&this->laser_2_mutex_);
-}
-
-void WolfAlgNode::laser_3_callback(const sensor_msgs::LaserScan::ConstPtr& msg)
-{
-  //ROS_INFO("WolfAlgNode::laser_back_left_callback: New Message Received");
-  updateLaserParams(2, msg);
-
-  //use appropiate mutex to shared variables if necessary
-  //this->alg_.lock();
-  this->laser_3_mutex_enter();
-  CaptureLaser2D* new_capture = new CaptureLaser2D(TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
-                                                   laser_sensor_ptr_[2],
-                                                   msg->ranges);
-  wolf_manager_->addCapture(new_capture);
-  computeLaserScan(new_capture, msg->header, 2);
-
-  //unlock previously blocked shared variables
-  //this->alg_.unlock();
-  this->laser_3_mutex_exit();
-}
-
-void WolfAlgNode::laser_3_mutex_enter(void)
-{
-  pthread_mutex_lock(&this->laser_3_mutex_);
-}
-
-void WolfAlgNode::laser_3_mutex_exit(void)
-{
-  pthread_mutex_unlock(&this->laser_3_mutex_);
-}
-
-void WolfAlgNode::laser_4_callback(const sensor_msgs::LaserScan::ConstPtr& msg)
-{
-  //ROS_INFO("WolfAlgNode::laser_back_callback: New Message Received");
-  updateLaserParams(3, msg);
-
-  //use appropiate mutex to shared variables if necessary
-  //this->alg_.lock();
-  this->laser_4_mutex_enter();
-  CaptureLaser2D* new_capture = new CaptureLaser2D(TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
-                                                   laser_sensor_ptr_[3],
-                                                   msg->ranges);
-  wolf_manager_->addCapture(new_capture);
-  computeLaserScan(new_capture, msg->header, 3);
-
-  //unlock previously blocked shared variables
-  //this->alg_.unlock();
-  this->laser_4_mutex_exit();
-}
-
-void WolfAlgNode::laser_4_mutex_enter(void)
-{
-  pthread_mutex_lock(&this->laser_4_mutex_);
-}
-
-void WolfAlgNode::laser_4_mutex_exit(void)
-{
-  pthread_mutex_unlock(&this->laser_4_mutex_);
-}
-
-void WolfAlgNode::laser_5_callback(const sensor_msgs::LaserScan::ConstPtr& msg)
-{
-  //ROS_INFO("WolfAlgNode::laser_back_right_callback: New Message Received");
-  updateLaserParams(4, msg);
-
-  //use appropiate mutex to shared variables if necessary
-  //this->alg_.lock();
-  this->laser_5_mutex_enter();
-  CaptureLaser2D* new_capture = new CaptureLaser2D(TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
-                                                   laser_sensor_ptr_[4],
-                                                   msg->ranges);
-  wolf_manager_->addCapture(new_capture);
-  computeLaserScan(new_capture, msg->header, 4);
-
-  //unlock previously blocked shared variables
-  //this->alg_.unlock();
-  this->laser_5_mutex_exit();
-}
-
-void WolfAlgNode::laser_5_mutex_enter(void)
-{
-  pthread_mutex_lock(&this->laser_5_mutex_);
-}
-
-void WolfAlgNode::laser_5_mutex_exit(void)
-{
-  pthread_mutex_unlock(&this->laser_5_mutex_);
-}
-
-void WolfAlgNode::laser_6_callback(const sensor_msgs::LaserScan::ConstPtr& msg)
-{
-  //ROS_INFO("WolfAlgNode::laser_front_right_callback: New Message Received");
-  updateLaserParams(5, msg);
-
-  //use appropiate mutex to shared variables if necessary
-  //this->alg_.lock();
-  this->laser_6_mutex_enter();
-  CaptureLaser2D* new_capture = new CaptureLaser2D(TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
-                                                   laser_sensor_ptr_[5],
-                                                   msg->ranges);
-  wolf_manager_->addCapture(new_capture);
-  computeLaserScan(new_capture, msg->header, 5);
-
-  //unlock previously blocked shared variables
-  //this->alg_.unlock();
-  this->laser_6_mutex_exit();
-}
-
-void WolfAlgNode::laser_6_mutex_enter(void)
-{
-  pthread_mutex_lock(&this->laser_6_mutex_);
-}
-
-void WolfAlgNode::laser_6_mutex_exit(void)
-{
-  pthread_mutex_unlock(&this->laser_6_mutex_);
-}
-*/
-
 
 /*  [service callbacks] */
 
@@ -656,13 +443,13 @@ void WolfAlgNode::node_config_update(Config &config, uint32_t level)
             laserscanutils::ExtractCornerParams corners_alg_params = laser_sensor_ptr_[ii]->getCornerAlgParams();
             corners_alg_params.theta_min_ = config.theta_min;
             corners_alg_params.max_distance_ = config.max_distance;
-            corners_alg_params.line_params_.jump_dist_ut_ = config.max_distance; //TODO: To be added as a new param at .cfg file
-            corners_alg_params.line_params_.window_sz_ = config.segment_window_size; //TODO: change name at .cfg file
+            corners_alg_params.line_params_.jump_dist_ut_ = config.jump_dist_ut;
+            corners_alg_params.line_params_.window_length_ = config.segment_window_length;
             corners_alg_params.line_params_.min_window_points_ = config.min_window_points;
-            corners_alg_params.line_params_.k_sigmas_ut_ = config.k_sigmas;//TODO: change name at .cfg file
-            corners_alg_params.line_params_.concatenate_ii_ut_ = config.max_beam_distance;//TODO: change name at .cfg file
-            corners_alg_params.line_params_.concatenate_angle_ut_ = config.theta_max_parallel;//TODO: change name at .cfg file
-            laser_sensor_ptr_[ii]->setCornerAlgParams(corners_alg_params);//TODO: change name at .cfg file
+            corners_alg_params.line_params_.k_sigmas_ut_ = config.k_sigmas_ut;
+            corners_alg_params.line_params_.concatenate_ii_ut_ = config.concatenate_ii_ut;
+            corners_alg_params.line_params_.concatenate_angle_ut_ = config.concatenate_angle_ut;
+            laser_sensor_ptr_[ii]->setCornerAlgParams(corners_alg_params);
         }
     }
     draw_lines_ = config.draw_lines;
@@ -683,8 +470,6 @@ int main(int argc,char *argv[])
 
 void WolfAlgNode::updateLaserParams(const unsigned int _laser_idx, const sensor_msgs::LaserScan::ConstPtr& msg)
 {
-  if (!laser_params_set_[_laser_idx])
-  {
     // laser intrinsic parameters
     laserscanutils::ScanParams params = laser_sensor_ptr_[_laser_idx]->getScanParams();
     params.angle_min_ = msg->angle_min;
@@ -696,7 +481,6 @@ void WolfAlgNode::updateLaserParams(const unsigned int _laser_idx, const sensor_
     params.range_std_dev_ = 0.05;
     laser_sensor_ptr_[_laser_idx]->setScanParams(params);
     laser_params_set_[_laser_idx] = true;
-  }
 }
 
 void WolfAlgNode::computeLaserScan(CaptureLaser2D* new_capture, const std_msgs::Header & header, const unsigned int laser_idx)
@@ -722,4 +506,47 @@ void WolfAlgNode::computeLaserScan(CaptureLaser2D* new_capture, const std_msgs::
     }
 }
 
+void WolfAlgNode::loadLaserTf(const unsigned int laser_idx)
+{
+    std::stringstream lidar_frame_name_ii;
+    tf::StampedTransform base_2_lidar_ii;
 
+    //build name
+    lidar_frame_name_ii.str("");
+    lidar_frame_name_ii << "agv_lidar" << laser_idx;
+
+    //look up for transform from base to ibeo
+    //std::cout << "waiting for transform: " << lidar_frame_name_ii.str() << std::endl;
+    if ( tfl_.waitForTransform("agv_base_link", lidar_frame_name_ii.str(), ros::Time(0), ros::Duration(1.)) )
+    {
+        //look up for transform at TF
+        tfl_.lookupTransform("agv_base_link", lidar_frame_name_ii.str(), ros::Time(0), base_2_lidar_ii);
+
+        //Set mounting frame. Fill translation part
+        laser_sensor_pose_[laser_idx].head(3) << base_2_lidar_ii.getOrigin().x(),
+                                                 base_2_lidar_ii.getOrigin().y(),
+                                                 base_2_lidar_ii.getOrigin().z();
+
+        //Set mounting frame. Fill quaternion representing rotation part.
+        laser_sensor_pose_[laser_idx].tail(4) << base_2_lidar_ii.getRotation().getX(),
+                                                 base_2_lidar_ii.getRotation().getY(),
+                                                 base_2_lidar_ii.getRotation().getZ(),
+                                                 base_2_lidar_ii.getRotation().getW();
+
+        //DEBUG: prints 2D lidar pose
+        //std::cout << "LIDAR " << laser_idx << ": " << lidar_frame_name_ii.str() << ": " << laser_sensor_pose_[laser_idx].transpose() << std::endl;
+
+        //set wolf states and sensors
+        laser_sensor_point_[laser_idx] = new StatePoint3D(laser_sensor_pose_[laser_idx].data());
+        laser_sensor_orientation_[laser_idx] = new StateQuaternion(&laser_sensor_pose_[laser_idx](3));
+        laser_sensor_ptr_[laser_idx] = new SensorLaser2D(laser_sensor_point_[laser_idx], laser_sensor_orientation_[laser_idx]);
+
+        laser_tf_loaded_[laser_idx] = true;
+
+        std::cout << "LIDAR " << laser_idx << " initiallized" << std::endl;
+    }
+    else
+    {
+        ROS_WARN("No TF found from agv_base_link to %s",lidar_frame_name_ii.str().c_str());
+    }
+}
