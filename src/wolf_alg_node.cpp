@@ -198,11 +198,15 @@ void WolfAlgNode::mainNodeThread(void)
     for (unsigned int ii=0; ii<6; ii++) laser_mutex_enter(ii);
 
     //solve problem
+    //std::cout << "wolf updating..." << std::endl;
     wolf_manager_->update();
+    //std::cout << "wolf updated" << std::endl;
     ceres_manager_->update(wolf_manager_->getProblemPtr());
+    //std::cout << "ceres updated" << std::endl;
     ceres::Solver::Summary summary = ceres_manager_->solve(ceres_options_);
     //std::cout << summary.FullReport() << std::endl;
     ceres_manager_->computeCovariances(wolf_manager_->getProblemPtr());
+    //std::cout << "covariances computed" << std::endl;
 
     //unlock everyone
     relative_odometry_mutex_exit();    
@@ -287,7 +291,7 @@ void WolfAlgNode::mainNodeThread(void)
         (*fr_it)->getConstraintList(ctr_list);
         for (auto c_it = ctr_list.begin(); c_it != ctr_list.end(); c_it++)
         {
-            if ((*c_it)->getConstraintType() == CTR_CORNER_2D_THETA)
+            if ((*c_it)->getConstraintType() == CTR_CORNER_2D_THETA || (*c_it)->getConstraintType() == CTR_CONTAINER)
             {
                 point1.x = *(*fr_it)->getPPtr()->getPtr();
                 point1.y = *((*fr_it)->getPPtr()->getPtr()+1);
@@ -305,6 +309,7 @@ void WolfAlgNode::mainNodeThread(void)
     ii = 0;
     corners_MarkerArray_msg_.markers.clear();
     visualization_msgs::Marker new_landmark;
+    visualization_msgs::Marker new_landmark_text;
     for (auto l_it = wolf_manager_->getProblemPtr()->getMapPtr()->getLandmarkListPtr()->begin(); 
          l_it != wolf_manager_->getProblemPtr()->getMapPtr()->getLandmarkListPtr()->end(); 
          l_it++, ii++)
@@ -317,12 +322,12 @@ void WolfAlgNode::mainNodeThread(void)
         new_landmark.color.b = 1 - (double)(*l_it)->getHits()/10;
         new_landmark.color.a = 0.5;//0.3 + 0.7*((double)(*l_it)->getHits()/10);
         new_landmark.ns = "/landmarks";
-        new_landmark.id = ii;
+        new_landmark.id = 2*ii;
 
         new_landmark.pose.position.x = *(*l_it)->getPPtr()->getPtr();
         new_landmark.pose.position.y = *((*l_it)->getPPtr()->getPtr()+1);
         new_landmark.pose.position.z = 1.5;
-        new_landmark.pose.orientation = tf::createQuaternionMsgFromYaw(*(*l_it)->getOPtr()->getPtr());
+        new_landmark.pose.orientation = tf::createQuaternionMsgFromYaw((*l_it)->getOPtr()->getYaw());
 
 
         if ((*l_it)->getType() == LANDMARK_CORNER)
@@ -339,6 +344,20 @@ void WolfAlgNode::mainNodeThread(void)
         }
 
         corners_MarkerArray_msg_.markers.push_back(new_landmark);
+
+        new_landmark_text = new_landmark;
+        new_landmark_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+        new_landmark_text.color.r = 1;
+        new_landmark_text.color.g = 1;
+        new_landmark_text.color.b = 1;
+        new_landmark_text.color.a = 1;
+        new_landmark_text.id = 2*ii+1;
+        new_landmark_text.pose.position.z = 3;
+        new_landmark_text.scale.z = 1;
+        new_landmark_text.text = std::to_string((*l_it)->nodeId());
+
+        corners_MarkerArray_msg_.markers.push_back(new_landmark_text);
+
     }
     //ROS_INFO("WolfAlgNode: %i Landmarks ", corners_MarkerArray_msg_.markers.size());
   
@@ -444,6 +463,7 @@ void WolfAlgNode::node_config_update(Config &config, uint32_t level)
             corners_alg_params.theta_min_ = config.theta_min;
             corners_alg_params.max_distance_ = config.max_distance;
             corners_alg_params.line_params_.jump_dist_ut_ = config.jump_dist_ut;
+            corners_alg_params.line_params_.jump_angle_ut_ = config.jump_angle_ut;
             corners_alg_params.line_params_.window_length_ = config.segment_window_length;
             corners_alg_params.line_params_.min_window_points_ = config.min_window_points;
             corners_alg_params.line_params_.k_sigmas_ut_ = config.k_sigmas_ut;
