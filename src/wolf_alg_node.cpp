@@ -2,24 +2,14 @@
 
 WolfAlgNode::WolfAlgNode(void) :
     algorithm_base::IriBaseAlgorithm<WolfAlgorithm>(),
-    //odom_sensor_pose_(3),
     odom_sensor_point_(odom_sensor_pose_.data()),
     odom_sensor_theta_(&odom_sensor_pose_(3)),
-    laser_sensor_pose_(6),
-    laser_sensor_point_({nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}),
-    //laser_sensor_theta_(6),
-    laser_sensor_orientation_({nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}),
-    laser_sensor_ptr_({nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}),
-    laser_params_set_({false, false, false, false, false, false}),
-    laser_tf_loaded_({false, false, false, false, false, false}),
-    line_colors_(6),
-    draw_lines_(false), 
-    laser_subscribers_(6), 
-    laser_mutexes_(6)
+    draw_lines_(false)
 {
     //init class attributes if necessary
     WolfScalar odom_std[2];
     int state_initial_length;
+    public_node_handle_.param<int>("n_lasers", n_lasers_, 6);
     public_node_handle_.param<int>("window_length", window_length_, 35);
     public_node_handle_.param<double>("odometry_translational_std", odom_std[0], 0.2);
     public_node_handle_.param<double>("odometry_rotational_std", odom_std[1], 0.2);
@@ -38,8 +28,19 @@ WolfAlgNode::WolfAlgNode(void) :
     odom_sensor_pose_ = Eigen::Vector4s::Zero(); //odom sensor coniciding with vehicle base link: xyz + theta
     odom_sensor_ptr_ = new SensorOdom2D(&odom_sensor_point_, &odom_sensor_theta_, odom_std[0], odom_std[1]);//both arguments initialized on top
 
+    // init lasers
+    laser_sensor_pose_.resize(n_lasers_);
+    laser_sensor_point_ = std::vector<StatePoint3D*>(n_lasers_, nullptr);
+    laser_sensor_orientation_ = std::vector<StateQuaternion*>(n_lasers_, nullptr);
+    laser_sensor_ptr_ = std::vector<SensorLaser2D*>(n_lasers_, nullptr);
+    laser_params_set_= std::vector<bool>(n_lasers_, false);
+    laser_tf_loaded_= std::vector<bool>(n_lasers_, false);
+    line_colors_.resize(n_lasers_);
+    laser_subscribers_.resize(n_lasers_);
+    laser_mutexes_.resize(n_lasers_);
+
     //loads the tf of all lasers
-    for (unsigned int ii = 0; ii<6; ii++)
+    for (unsigned int ii = 0; ii<n_lasers_; ii++)
         loadLaserTf(ii);
 
     //create the manager
@@ -59,13 +60,13 @@ WolfAlgNode::WolfAlgNode(void) :
     // [init subscribers]
     
     //init odometry subscriber and odometry mutex
-    this->relative_odometry_subscriber_ = this->public_node_handle_.subscribe("relative_odometry", 10,
-                                                                              &WolfAlgNode::relative_odometry_callback, this);
-    pthread_mutex_init(&this->relative_odometry_mutex_,nullptr);
+    this->odometry_subscriber_ = this->public_node_handle_.subscribe("relative_odometry", 10,
+                                                                              &WolfAlgNode::odometry_callback, this);
+    pthread_mutex_init(&this->odometry_mutex_,nullptr);
     
     //init lidar subscribers and mutexes
     std::stringstream lidar_topic_name_ii; 
-    for (unsigned int ii = 0; ii<6; ii++)
+    for (unsigned int ii = 0; ii<n_lasers_; ii++)
     {
         //build topic name
         lidar_topic_name_ii.str("");
@@ -180,7 +181,7 @@ WolfAlgNode::~WolfAlgNode(void)
     }
         
     // [free dynamic memory]
-    pthread_mutex_destroy(&this->relative_odometry_mutex_);
+    pthread_mutex_destroy(&this->odometry_mutex_);
     for (unsigned int ii=0; ii<6; ii++) pthread_mutex_destroy(&laser_mutexes_[ii]);
 }
 
@@ -194,7 +195,7 @@ void WolfAlgNode::mainNodeThread(void)
             loadLaserTf(ii);
 
     //lock everyone
-    relative_odometry_mutex_enter();
+    odometry_mutex_enter();
     for (unsigned int ii=0; ii<6; ii++) laser_mutex_enter(ii);
 
     //solve problem
@@ -209,7 +210,7 @@ void WolfAlgNode::mainNodeThread(void)
     //std::cout << "covariances computed" << std::endl;
 
     //unlock everyone
-    relative_odometry_mutex_exit();    
+    odometry_mutex_exit();    
     for (unsigned int ii=0; ii<6; ii++) laser_mutex_exit(ii);
 
     // Sets localization timestamp & Gets wolf localization estimate
@@ -374,13 +375,13 @@ void WolfAlgNode::mainNodeThread(void)
 
 /*  [subscriber callbacks] */
 
-void WolfAlgNode::relative_odometry_callback(const nav_msgs::Odometry::ConstPtr& msg)
+void WolfAlgNode::odometry_callback(const nav_msgs::Odometry::ConstPtr& msg)
 {
   //ROS_INFO("WolfAlgNode::relative_odometry_callback: New Message Received");
 
   //use appropiate mutex to shared variables if necessary
   //this->alg_.lock();
-  this->relative_odometry_mutex_enter();
+  this->odometry_mutex_enter();
   wolf_manager_->addCapture(new CaptureOdom2D(TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
                                               TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
                                               odom_sensor_ptr_,
@@ -388,17 +389,17 @@ void WolfAlgNode::relative_odometry_callback(const nav_msgs::Odometry::ConstPtr&
 
   //unlock previously blocked shared variables
   //this->alg_.unlock();
-  this->relative_odometry_mutex_exit();
+  this->odometry_mutex_exit();
 }
 
-void WolfAlgNode::relative_odometry_mutex_enter(void)
+void WolfAlgNode::odometry_mutex_enter(void)
 {
-  pthread_mutex_lock(&this->relative_odometry_mutex_);
+  pthread_mutex_lock(&this->odometry_mutex_);
 }
 
-void WolfAlgNode::relative_odometry_mutex_exit(void)
+void WolfAlgNode::odometry_mutex_exit(void)
 {
-  pthread_mutex_unlock(&this->relative_odometry_mutex_);
+  pthread_mutex_unlock(&this->odometry_mutex_);
 }
 
 void WolfAlgNode::laser_callback(const sensor_msgs::LaserScan::ConstPtr& msg)

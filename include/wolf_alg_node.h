@@ -51,7 +51,7 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
 {
   private:
     bool draw_lines_;
-    int window_length_;
+    int window_length_, n_lasers_;
     double new_frame_elapsed_time_;
     
     //ceres
@@ -103,11 +103,11 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
     // [subscriber attributes]
 
     //Odometry callback
-    ros::Subscriber relative_odometry_subscriber_;
-    void relative_odometry_callback(const nav_msgs::Odometry::ConstPtr& msg);
-    pthread_mutex_t relative_odometry_mutex_;
-    void relative_odometry_mutex_enter(void);
-    void relative_odometry_mutex_exit(void);
+    ros::Subscriber odometry_subscriber_;
+    void odometry_callback(const nav_msgs::Odometry::ConstPtr& msg);
+    pthread_mutex_t odometry_mutex_;
+    void odometry_mutex_enter(void);
+    void odometry_mutex_exit(void);
 
     //Lidar callbacks
     std::vector<ros::Subscriber> laser_subscribers_;
@@ -115,44 +115,6 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
     void laser_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
     void laser_mutex_enter(unsigned int _id);
     void laser_mutex_exit(unsigned int _id);
-
-/*
-    ros::Subscriber laser_1_subscriber_;
-    void laser_1_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
-    pthread_mutex_t laser_1_mutex_;
-    void laser_1_mutex_enter(void);
-    void laser_1_mutex_exit(void);
-
-    ros::Subscriber laser_2_subscriber_;
-    void laser_2_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
-    pthread_mutex_t laser_2_mutex_;
-    void laser_2_mutex_enter(void);
-    void laser_2_mutex_exit(void);
-
-    ros::Subscriber laser_3_subscriber_;
-    void laser_3_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
-    pthread_mutex_t laser_3_mutex_;
-    void laser_3_mutex_enter(void);
-    void laser_3_mutex_exit(void);
-
-    ros::Subscriber laser_4_subscriber_;
-    void laser_4_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
-    pthread_mutex_t laser_4_mutex_;
-    void laser_4_mutex_enter(void);
-    void laser_4_mutex_exit(void);
-
-    ros::Subscriber laser_5_subscriber_;
-    void laser_5_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
-    pthread_mutex_t laser_5_mutex_;
-    void laser_5_mutex_enter(void);
-    void laser_5_mutex_exit(void);
-
-    ros::Subscriber laser_6_subscriber_;
-    void laser_6_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
-    pthread_mutex_t laser_6_mutex_;
-    void laser_6_mutex_enter(void);
-    void laser_6_mutex_exit(void);
-*/
 
     // [service attributes]
 
