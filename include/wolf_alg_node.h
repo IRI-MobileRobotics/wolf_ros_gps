@@ -71,7 +71,8 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
     //std::vector<StateTheta*> laser_sensor_theta_;
     std::vector<StateQuaternion*> laser_sensor_orientation_;
     std::vector<SensorLaser2D*> laser_sensor_ptr_;
-    std::vector<bool> laser_params_set_;    
+    std::vector<bool> laser_params_set_;
+    std::vector<bool> laser_tf_loaded_;
 
     //Wolf: manager
     WolfManager<StatePoint2D, StateTheta>* wolf_manager_;
@@ -222,6 +223,8 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
     void computeLaserScan(CaptureLaser2D* new_capture, const std_msgs::Header & header, const unsigned int laser_idx);
 
     void updateLaserParams(const unsigned int laser_idx, const sensor_msgs::LaserScan::ConstPtr& msg);
+
+    void loadLaserTf(const unsigned int laser_idx);
 };
 
 #endif
