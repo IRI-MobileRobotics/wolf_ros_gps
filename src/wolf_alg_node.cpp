@@ -4,7 +4,8 @@ WolfAlgNode::WolfAlgNode(void) :
     algorithm_base::IriBaseAlgorithm<WolfAlgorithm>(),
     odom_sensor_point_(odom_sensor_pose_.data()),
     odom_sensor_theta_(&odom_sensor_pose_(3)),
-    draw_lines_(false)
+    draw_lines_(false),
+    last_odom_stamp_(0)
 {
     //init class attributes if necessary
     WolfScalar odom_std[2];
@@ -38,10 +39,19 @@ WolfAlgNode::WolfAlgNode(void) :
     line_colors_.resize(n_lasers_);
     laser_subscribers_.resize(n_lasers_);
     laser_mutexes_.resize(n_lasers_);
+    laser_frame_name_.resize(n_lasers_);
 
     //loads the tf of all lasers
+    std::stringstream lidar_frame_name_ii;
     for (unsigned int ii = 0; ii<n_lasers_; ii++)
+    {
+        //build name
+        lidar_frame_name_ii.str("");
+        lidar_frame_name_ii << "laser_" << ii << "_frame_name";
+        public_node_handle_.param<std::string>(lidar_frame_name_ii.str(), laser_frame_name_[ii], "agv_laser_ii_frame_name");
+        std::cout << "setting laser " << ii << "tf. frame id: " << laser_frame_name_[ii] << std::endl;
         loadLaserTf(ii);
+    }
 
     //create the manager
     wolf_manager_ = new WolfManager<StatePoint2D, StateTheta>(state_initial_length, odom_sensor_ptr_,Eigen::Vector3s::Zero(),
@@ -60,8 +70,7 @@ WolfAlgNode::WolfAlgNode(void) :
     // [init subscribers]
     
     //init odometry subscriber and odometry mutex
-    this->odometry_subscriber_ = this->public_node_handle_.subscribe("relative_odometry", 10,
-                                                                              &WolfAlgNode::odometry_callback, this);
+    this->odometry_subscriber_ = this->public_node_handle_.subscribe("odometry", 10, &WolfAlgNode::odometry_callback, this);
     pthread_mutex_init(&this->odometry_mutex_,nullptr);
     
     //init lidar subscribers and mutexes
@@ -125,16 +134,16 @@ WolfAlgNode::WolfAlgNode(void) :
     vehicle_head_marker.header.stamp = ros::Time::now();
     vehicle_head_marker.header.frame_id = "agv_base_link";
     vehicle_head_marker.type = visualization_msgs::Marker::CUBE;
-    vehicle_head_marker.scale.x = 4.4;
-    vehicle_head_marker.scale.y = 1.6;
-    vehicle_head_marker.scale.z = 1;
+    vehicle_head_marker.scale.x = 10;
+    vehicle_head_marker.scale.y = 3;
+    vehicle_head_marker.scale.z = 3;
     vehicle_head_marker.color.r = 1; //red
     vehicle_head_marker.color.g = 0;
     vehicle_head_marker.color.b = 0;
     vehicle_head_marker.color.a = 1;
-    vehicle_head_marker.pose.position.x = 1.3;
+    vehicle_head_marker.pose.position.x = 0.0;
     vehicle_head_marker.pose.position.y = 0.0;
-    vehicle_head_marker.pose.position.z = 0.5;
+    vehicle_head_marker.pose.position.z = 1.5;
     vehicle_head_marker.pose.orientation = tf::createQuaternionMsgFromYaw(0.0);
     vehicle_head_marker.id = 0;
     vehicle_MarkerArray_msg_.markers.push_back(vehicle_head_marker);
@@ -147,18 +156,18 @@ WolfAlgNode::WolfAlgNode(void) :
         //vehicle_trajectory_marker.header.frame_id = (i==1 ? "agv_base_link" : "map");
         vehicle_trajectory_marker.header.frame_id = "map";
         vehicle_trajectory_marker.type = visualization_msgs::Marker::CUBE;
-        vehicle_trajectory_marker.scale.x = 4.4;
-        vehicle_trajectory_marker.scale.y = 1.6;
-        vehicle_trajectory_marker.scale.z = 1;
+        vehicle_trajectory_marker.scale.x = 10;
+        vehicle_trajectory_marker.scale.y = 3;
+        vehicle_trajectory_marker.scale.z = 3;
         vehicle_trajectory_marker.color.r = 1;//yellow
         vehicle_trajectory_marker.color.g = 1;//yellow
         vehicle_trajectory_marker.color.b = 0;
         //vehicle_trajectory_marker.color.a = (i==1 ? 1 : 0.0);
         vehicle_trajectory_marker.color.a = 0.0; //no show at while no true frame
-        vehicle_trajectory_marker.pose.position.x = 1.3;
+        vehicle_trajectory_marker.pose.position.x = 0.0;
         vehicle_trajectory_marker.pose.position.y = 0.0;
-        vehicle_trajectory_marker.pose.position.z = 0.5;
-//         vehicle_trajectory_marker.pose.orientation = tf::createQuaternionMsgFromYaw(0.0);
+        vehicle_trajectory_marker.pose.position.z = 1.5;
+        //vehicle_trajectory_marker.pose.orientation = tf::createQuaternionMsgFromYaw(0.0);
         vehicle_trajectory_marker.id = ii+1; //0 already taken by the current vehicle
         vehicle_MarkerArray_msg_.markers.push_back(vehicle_trajectory_marker);
     }
@@ -176,7 +185,6 @@ WolfAlgNode::~WolfAlgNode(void)
     {
         delete laser_sensor_ptr_[ii];
         delete laser_sensor_point_[ii];
-        //delete laser_sensor_theta_[ii];
         delete laser_sensor_orientation_[ii];
     }
         
@@ -261,8 +269,8 @@ void WolfAlgNode::mainNodeThread(void)
         vehicle_MarkerArray_msg_.markers[ii].action = visualization_msgs::Marker::MODIFY;
         vehicle_MarkerArray_msg_.markers[ii].header.stamp = loc_stamp;
         vehicle_MarkerArray_msg_.markers[ii].header.frame_id = "map";
-        vehicle_MarkerArray_msg_.markers[ii].pose.position.x = *((*fr_it)->getPPtr()->getPtr())+1.3*cos( (*fr_it)->getOPtr()->getYaw() );
-        vehicle_MarkerArray_msg_.markers[ii].pose.position.y = *((*fr_it)->getPPtr()->getPtr()+1)+1.3*sin( (*fr_it)->getOPtr()->getYaw() );
+        vehicle_MarkerArray_msg_.markers[ii].pose.position.x = *((*fr_it)->getPPtr()->getPtr());
+        vehicle_MarkerArray_msg_.markers[ii].pose.position.y = *((*fr_it)->getPPtr()->getPtr()+1);
         vehicle_MarkerArray_msg_.markers[ii].pose.orientation = tf::createQuaternionMsgFromYaw( (*fr_it)->getOPtr()->getYaw() );
         vehicle_MarkerArray_msg_.markers[ii].color.a = 0.5; //Show with little transparency
 
@@ -379,17 +387,23 @@ void WolfAlgNode::odometry_callback(const nav_msgs::Odometry::ConstPtr& msg)
 {
   //ROS_INFO("WolfAlgNode::relative_odometry_callback: New Message Received");
 
-  //use appropiate mutex to shared variables if necessary
-  //this->alg_.lock();
-  this->odometry_mutex_enter();
-  wolf_manager_->addCapture(new CaptureOdom2D(TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
-                                              TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
-                                              odom_sensor_ptr_,
-                                              Eigen::Vector3s(msg->pose.pose.position.x,0.0,tf::getYaw(msg->pose.pose.orientation))));
+  if (last_odom_stamp_ != ros::Time(0))
+  {
+      //use appropiate mutex to shared variables if necessary
+      //this->alg_.lock();
+      this->odometry_mutex_enter();
 
-  //unlock previously blocked shared variables
-  //this->alg_.unlock();
-  this->odometry_mutex_exit();
+      float dt = (msg->header.stamp - last_odom_stamp_).toSec();
+      wolf_manager_->addCapture(new CaptureOdom2D(TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
+                                                  TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
+                                                  odom_sensor_ptr_,
+                                                  Eigen::Vector3s(msg->twist.twist.linear.x*dt,0.0,msg->twist.twist.angular.z*dt)));
+
+      //unlock previously blocked shared variables
+      //this->alg_.unlock();
+      this->odometry_mutex_exit();
+  }
+  last_odom_stamp_ = msg->header.stamp;
 }
 
 void WolfAlgNode::odometry_mutex_enter(void)
@@ -529,19 +543,14 @@ void WolfAlgNode::computeLaserScan(CaptureLaser2D* new_capture, const std_msgs::
 
 void WolfAlgNode::loadLaserTf(const unsigned int laser_idx)
 {
-    std::stringstream lidar_frame_name_ii;
     tf::StampedTransform base_2_lidar_ii;
 
-    //build name
-    lidar_frame_name_ii.str("");
-    lidar_frame_name_ii << "agv_lidar" << laser_idx;
-
     //look up for transform from base to ibeo
-    //std::cout << "waiting for transform: " << lidar_frame_name_ii.str() << std::endl;
-    if ( tfl_.waitForTransform("agv_base_link", lidar_frame_name_ii.str(), ros::Time(0), ros::Duration(1.)) )
+    //std::cout << "waiting for transform: " << laser_frame_name_[laser_idx] << std::endl;
+    if ( tfl_.waitForTransform("agv_base_link", laser_frame_name_[laser_idx], ros::Time(0), ros::Duration(1.)) )
     {
         //look up for transform at TF
-        tfl_.lookupTransform("agv_base_link", lidar_frame_name_ii.str(), ros::Time(0), base_2_lidar_ii);
+        tfl_.lookupTransform("agv_base_link", laser_frame_name_[laser_idx], ros::Time(0), base_2_lidar_ii);
 
         //Set mounting frame. Fill translation part
         laser_sensor_pose_[laser_idx].head(3) << base_2_lidar_ii.getOrigin().x(),
@@ -555,7 +564,7 @@ void WolfAlgNode::loadLaserTf(const unsigned int laser_idx)
                                                  base_2_lidar_ii.getRotation().getW();
 
         //DEBUG: prints 2D lidar pose
-        //std::cout << "LIDAR " << laser_idx << ": " << lidar_frame_name_ii.str() << ": " << laser_sensor_pose_[laser_idx].transpose() << std::endl;
+        //std::cout << "LIDAR " << laser_idx << ": " << laser_frame_name_[laser_idx] << ": " << laser_sensor_pose_[laser_idx].transpose() << std::endl;
 
         //set wolf states and sensors
         laser_sensor_point_[laser_idx] = new StatePoint3D(laser_sensor_pose_[laser_idx].data());
@@ -568,6 +577,6 @@ void WolfAlgNode::loadLaserTf(const unsigned int laser_idx)
     }
     else
     {
-        ROS_WARN("No TF found from agv_base_link to %s",lidar_frame_name_ii.str().c_str());
+        ROS_WARN("No TF found from agv_base_link to %s",laser_frame_name_[laser_idx].c_str());
     }
 }

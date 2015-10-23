@@ -73,6 +73,7 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
     std::vector<SensorLaser2D*> laser_sensor_ptr_;
     std::vector<bool> laser_params_set_;
     std::vector<bool> laser_tf_loaded_;
+    std::vector<std::string> laser_frame_name_;
 
     //Wolf: manager
     WolfManager<StatePoint2D, StateTheta>* wolf_manager_;
@@ -103,6 +104,7 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
     // [subscriber attributes]
 
     //Odometry callback
+    ros::Time last_odom_stamp_;
     ros::Subscriber odometry_subscriber_;
     void odometry_callback(const nav_msgs::Odometry::ConstPtr& msg);
     pthread_mutex_t odometry_mutex_;
