@@ -1,0 +1,52 @@
+<!-- Launches wolf node from TNO october'14 dataset-->
+
+<launch>
+
+    <!-- User Args  -->
+    <!--<arg name="bag_file_name" default="/home/jvallve/bags/simulation/agv_gazebo_2015-10-22-18-57-48.bag" /> -->
+    <arg name="bag_file_name" default="/home/jvallve/bags/simulation/agv_gazebo_2015-10-23-15-58-24.bag" /> 
+    <arg name="model" default="$(find agv_description)/urdf/agv.xacro"/>
+    
+    <!-- Set use_sim_time parameter in the parameter server-->
+    <param name="use_sim_time" value="true" />
+    
+    <!--Play the rosbag -->
+    <!-- args="/tf:=/tf_old ... " is required to effectively remap tf when running tf_remap-->
+    <node pkg="rosbag"
+        type="play"
+        name="rosbag"
+        args="-d 1 -s 10 -r 1 --clock $(arg bag_file_name)">
+    </node>
+    
+    <!--WOLF-->
+    <node name="iri_wolf"
+        pkg="iri_wolf"
+        type="iri_wolf"
+        output="screen">
+        <param name="window_length" value="10"/>
+        <param name="segment_window_length" value="0.7"/>
+        <param name="min_window_points" value="5"/>
+        <param name="k_sigmas_ut" value="1"/>
+        <param name="draw_lines" value="false"/>
+        <param name="laser_0_frame_name" value="agv_br_lidar"/>
+        <param name="laser_1_frame_name" value="agv_sr_lidar"/>
+        <param name="laser_2_frame_name" value="agv_fr_lidar"/>
+        <param name="laser_3_frame_name" value="agv_fl_lidar"/>
+        <param name="laser_4_frame_name" value="agv_sl_lidar"/>
+        <param name="laser_5_frame_name" value="agv_bl_lidar"/>
+        <remap from="~odometry" to="/agv_odom_sim/odom"/>
+        <remap from="~laser_0" to="/agv/br_lidar"/>
+        <remap from="~laser_1" to="/agv/sr_lidar"/>
+        <remap from="~laser_2" to="/agv/fr_lidar"/>
+        <remap from="~laser_3" to="/agv/fl_lidar"/>
+        <remap from="~laser_4" to="/agv/sl_lidar"/>
+        <remap from="~laser_5" to="/agv/bl_lidar"/>
+    </node>
+    
+    <!--RESULTS VISUALIZATION-->
+    <node name="rviz"
+        pkg="rviz"
+        type="rviz" 
+        args="-d $(find iri_wolf)/config/agv_wolf.rviz" />
+
+</launch>
