@@ -3,8 +3,8 @@
 <launch>
 
     <!-- User Args  -->
-    <!--<arg name="bag_file_name" default="/home/jvallve/bags/simulation/agv_gazebo_2015-10-22-18-57-48.bag" /> -->
-    <arg name="bag_file_name" default="/home/jvallve/bags/simulation/agv_gazebo_2015-10-23-15-58-24.bag" /> 
+    <!--<arg name="bag_file_name" default="/home/jvallve/chest/bags/simulation/agv_gazebo_2015-10-23-15-58-24.bag" /> -->
+    <arg name="bag_file_name" default="/home/jvallve/chest/bags/simulation/agv_gazebo_2015-10-23-18-19-44.bag" /> 
     <arg name="model" default="$(find agv_description)/urdf/agv.xacro"/>
     
     <!-- Set use_sim_time parameter in the parameter server-->

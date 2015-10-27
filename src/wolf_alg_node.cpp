@@ -101,7 +101,7 @@ WolfAlgNode::WolfAlgNode(void) :
     // init constraint markers message
     constraints_Marker_msg_.type = visualization_msgs::Marker::LINE_LIST;
     constraints_Marker_msg_.header.frame_id = "map";
-    constraints_Marker_msg_.scale.x = 0.1;
+    constraints_Marker_msg_.scale.x = 0.5;
     constraints_Marker_msg_.color.r = 1; //yellow
     constraints_Marker_msg_.color.g = 1; //yellow
     constraints_Marker_msg_.color.b = 0; //yellow
@@ -110,15 +110,22 @@ WolfAlgNode::WolfAlgNode(void) :
     constraints_Marker_msg_.id = 1;
     
     //init lidar lines marker array
-    line_colors_[0].r = 0; line_colors_[0].g = 0; line_colors_[0].b = 1; line_colors_[0].a = 1;
-    line_colors_[1].r = 1; line_colors_[1].g = 0; line_colors_[1].b = 1; line_colors_[1].a = 1;
-    line_colors_[2].r = 1; line_colors_[2].g = 0; line_colors_[2].b = 0; line_colors_[2].a = 1;
-    line_colors_[3].r = 1; line_colors_[3].g = 1; line_colors_[3].b = 0; line_colors_[3].a = 1;
-    line_colors_[4].r = 0; line_colors_[4].g = 1; line_colors_[4].b = 0; line_colors_[4].a = 1;
-    line_colors_[5].r = 0; line_colors_[5].g = 1; line_colors_[5].b = 1; line_colors_[5].a = 1;
     visualization_msgs::Marker line_list_Marker_msg;
-    for (unsigned int i=0; i<6; i++)
+    for (unsigned int i=0; i<n_lasers_; i++)
     {
+    	if (i == 0)
+			line_colors_[0].r = 0; line_colors_[0].g = 0; line_colors_[0].b = 1; line_colors_[0].a = 1;
+		if (i == 1)
+			line_colors_[1].r = 1; line_colors_[1].g = 0; line_colors_[1].b = 1; line_colors_[1].a = 1;
+		if (i ==  2)
+			line_colors_[2].r = 1; line_colors_[2].g = 0; line_colors_[2].b = 0; line_colors_[2].a = 1;
+		if (i ==  3)
+			line_colors_[3].r = 1; line_colors_[3].g = 1; line_colors_[3].b = 0; line_colors_[3].a = 1;
+		if (i ==  4)
+			line_colors_[4].r = 0; line_colors_[4].g = 1; line_colors_[4].b = 0; line_colors_[4].a = 1;
+		if (i >= 5)
+			line_colors_[5].r = 0; line_colors_[5].g = 1; line_colors_[5].b = 1; line_colors_[5].a = 1;
+
         line_list_Marker_msg.header.stamp = ros::Time::now();
         line_list_Marker_msg.header.frame_id = "agv_base_link";
         line_list_Marker_msg.type = visualization_msgs::Marker::LINE_LIST;
@@ -181,7 +188,7 @@ WolfAlgNode::~WolfAlgNode(void)
     //delete allocated memory in reverse order of dependencies
     delete wolf_manager_;
     delete odom_sensor_ptr_;
-    for (uint ii = 0; ii<6; ii++)
+    for (uint ii = 0; ii<n_lasers_; ii++)
     {
         delete laser_sensor_ptr_[ii];
         delete laser_sensor_point_[ii];
@@ -190,7 +197,7 @@ WolfAlgNode::~WolfAlgNode(void)
         
     // [free dynamic memory]
     pthread_mutex_destroy(&this->odometry_mutex_);
-    for (unsigned int ii=0; ii<6; ii++) pthread_mutex_destroy(&laser_mutexes_[ii]);
+    for (unsigned int ii=0; ii<n_lasers_; ii++) pthread_mutex_destroy(&laser_mutexes_[ii]);
 }
 
 void WolfAlgNode::mainNodeThread(void)
@@ -198,13 +205,13 @@ void WolfAlgNode::mainNodeThread(void)
     //std::cout << "mainNodeThread(): " << __LINE__ << std::endl;
 
     //loads the tf of all lasers in case they are not loaded yet
-    for (unsigned int ii = 0; ii<6; ii++)
+    for (unsigned int ii = 0; ii<n_lasers_; ii++)
         if (!laser_tf_loaded_[ii])
             loadLaserTf(ii);
 
     //lock everyone
     odometry_mutex_enter();
-    for (unsigned int ii=0; ii<6; ii++) laser_mutex_enter(ii);
+    for (unsigned int ii=0; ii<n_lasers_; ii++) laser_mutex_enter(ii);
 
     //solve problem
     //std::cout << "wolf updating..." << std::endl;
@@ -219,7 +226,7 @@ void WolfAlgNode::mainNodeThread(void)
 
     //unlock everyone
     odometry_mutex_exit();    
-    for (unsigned int ii=0; ii<6; ii++) laser_mutex_exit(ii);
+    for (unsigned int ii=0; ii<n_lasers_; ii++) laser_mutex_exit(ii);
 
     // Sets localization timestamp & Gets wolf localization estimate
     ros::Time loc_stamp = ros::Time::now();
@@ -470,7 +477,7 @@ void WolfAlgNode::laser_mutex_exit(unsigned int _id)
 void WolfAlgNode::node_config_update(Config &config, uint32_t level)
 {
     this->alg_.lock();
-    for (unsigned int ii = 0; ii < 6; ii++)
+    for (unsigned int ii = 0; ii < n_lasers_; ii++)
     {
         if ( laser_sensor_ptr_[ii] != nullptr ) //checks that the sensor exists
         {
@@ -564,7 +571,7 @@ void WolfAlgNode::loadLaserTf(const unsigned int laser_idx)
                                                  base_2_lidar_ii.getRotation().getW();
 
         //DEBUG: prints 2D lidar pose
-        //std::cout << "LIDAR " << laser_idx << ": " << laser_frame_name_[laser_idx] << ": " << laser_sensor_pose_[laser_idx].transpose() << std::endl;
+        std::cout << "LIDAR " << laser_idx << ": " << laser_frame_name_[laser_idx] << ": " << laser_sensor_pose_[laser_idx].transpose() << std::endl;
 
         //set wolf states and sensors
         laser_sensor_point_[laser_idx] = new StatePoint3D(laser_sensor_pose_[laser_idx].data());
