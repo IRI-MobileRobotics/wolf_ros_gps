@@ -74,6 +74,9 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
     std::vector<bool> laser_params_set_;
     std::vector<bool> laser_tf_loaded_;
     std::vector<std::string> laser_frame_name_;
+    laserscanutils::ExtractCornerParams corners_alg_params_;
+    bool new_corners_alg_params_;
+    std::map<std::string,unsigned int> laser_frame_2_idx_;
 
     //Wolf: manager
     WolfManager<StatePoint2D, StateTheta>* wolf_manager_;
@@ -113,10 +116,11 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
 
     //Lidar callbacks
     std::vector<ros::Subscriber> laser_subscribers_;
-    std::vector<pthread_mutex_t> laser_mutexes_;
+    pthread_mutex_t laser_mutex_;
     void laser_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
-    void laser_mutex_enter(unsigned int _id);
-    void laser_mutex_exit(unsigned int _id);
+    void laser_mutex_enter();
+    void laser_mutex_exit();
+    std::string base_frame_name_;
 
     // [service attributes]
 

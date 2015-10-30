@@ -5,7 +5,7 @@
     <!-- User Args  -->
     <!-- <arg name="bag_file_name" default="/home/jvallve/bags/Volvo/2015-10-27-12-53-57.bag" />  -->
     <!-- <arg name="bag_file_name" default="/home/jvallve/bags/Volvo/2015-10-27-12-50-03.bag" />  -->
-    <arg name="bag_file_name" default="/home/jvallve/bags/Volvo/2015-10-27-12-53-57.bag" /> 
+    <arg name="bag_file_name" default="/home/jvallve/bags/Volvo/at_201510/2015-10-30-12-19-08.bag" /> 
     
     <!-- Set use_sim_time parameter in the parameter server-->
     <param name="use_sim_time" value="true" />
