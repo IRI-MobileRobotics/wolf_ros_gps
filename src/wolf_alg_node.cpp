@@ -172,8 +172,6 @@ WolfAlgNode::WolfAlgNode(void) :
     visualization_msgs::Marker vehicle_trajectory_marker;
     for (unsigned int ii = 0; ii < window_length_; ii++)
     {
-        //vehicle_trajectory_marker.header.stamp = ros::Time::now();
-        //vehicle_trajectory_marker.header.frame_id = (i==1 ? base_frame_name_ : "map");
         vehicle_trajectory_marker.header.frame_id = "map";
         vehicle_trajectory_marker.type = visualization_msgs::Marker::CUBE;
         vehicle_trajectory_marker.scale.x = 10;
@@ -182,17 +180,13 @@ WolfAlgNode::WolfAlgNode(void) :
         vehicle_trajectory_marker.color.r = 1;//yellow
         vehicle_trajectory_marker.color.g = 1;//yellow
         vehicle_trajectory_marker.color.b = 0;
-        //vehicle_trajectory_marker.color.a = (i==1 ? 1 : 0.0);
         vehicle_trajectory_marker.color.a = 0.0; //no show at while no true frame
         vehicle_trajectory_marker.pose.position.x = 0.0;
         vehicle_trajectory_marker.pose.position.y = 0.0;
         vehicle_trajectory_marker.pose.position.z = 1.5;
-        //vehicle_trajectory_marker.pose.orientation = tf::createQuaternionMsgFromYaw(0.0);
         vehicle_trajectory_marker.id = ii+1; //0 already taken by the current vehicle
         vehicle_MarkerArray_msg_.markers.push_back(vehicle_trajectory_marker);
     }
-
-    //std::cout << "End of constructor:" <<  __LINE__ << std::endl;
     ROS_INFO("STARTING IRI WOLF...");
 }
 

@@ -26,8 +26,9 @@
         <param name="window_length" value="10"/>
         <param name="segment_window_length" value="0.7"/>
         <param name="min_window_points" value="5"/>
-        <param name="k_sigmas_ut" value="1"/>
+        <param name="k_sigmas_ut" value="2"/>
         <param name="draw_lines" value="false"/>
+        <param name="n_lasers" value="6"/>
         <param name="laser_0_frame_name" value="agv_br_lidar"/>
         <param name="laser_1_frame_name" value="agv_sr_lidar"/>
         <param name="laser_2_frame_name" value="agv_fr_lidar"/>

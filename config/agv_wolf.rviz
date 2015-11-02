@@ -6,9 +6,8 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /Grid1
-        - /Odometry1
-        - /vehicle1
+        - /Grid1/Status1
+        - /TF1
       Splitter Ratio: 0.5
     Tree Height: 687
   - Class: rviz/Selection
@@ -29,7 +28,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: SL Laser
+    SyncSource: ""
 Visualization Manager:
   Class: ""
   Displays:
@@ -282,7 +281,7 @@ Visualization Manager:
       Marker Topic: /iri_wolf/corners
       Name: Landmarks
       Namespaces:
-        /landmarks: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -298,7 +297,7 @@ Visualization Manager:
       Marker Topic: /iri_wolf/vehicle
       Name: vehicle
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -306,8 +305,22 @@ Visualization Manager:
       Marker Topic: /iri_wolf/constraints
       Name: Constraints
       Namespaces:
-        /constraints: true
+        {}
       Queue Size: 100
+      Value: true
+    - Class: rviz/TF
+      Enabled: true
+      Frame Timeout: 15
+      Frames:
+        All Enabled: true
+      Marker Scale: 1
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Tree:
+        {}
+      Update Interval: 0
       Value: true
   Enabled: true
   Global Options:
@@ -333,7 +346,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 155.938
+      Distance: 126.25
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
@@ -366,5 +379,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1246
-  X: 414
+  X: 404
   Y: 14
