@@ -484,7 +484,7 @@ Visualization Manager:
       Marker Topic: /iri_wolf/corners
       Name: Landmarks
       Namespaces:
-        /landmarks: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -492,7 +492,7 @@ Visualization Manager:
       Marker Topic: /iri_wolf/lines
       Name: Lines
       Namespaces:
-        /lines: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -514,7 +514,7 @@ Visualization Manager:
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: agv_base_link
+    Fixed Frame: map
     Frame Rate: 30
   Name: root
   Tools:
@@ -568,5 +568,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1246
-  X: 414
+  X: 404
   Y: 14

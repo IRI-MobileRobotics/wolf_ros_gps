@@ -102,7 +102,7 @@ WolfAlgNode::WolfAlgNode(void) :
     // init constraint markers message
     constraints_Marker_msg_.type = visualization_msgs::Marker::LINE_LIST;
     constraints_Marker_msg_.header.frame_id = "map";
-    constraints_Marker_msg_.scale.x = 0.5;
+    constraints_Marker_msg_.scale.x = 0.1;
     constraints_Marker_msg_.color.r = 1; //yellow
     constraints_Marker_msg_.color.g = 1; //yellow
     constraints_Marker_msg_.color.b = 0; //yellow
@@ -226,6 +226,7 @@ void WolfAlgNode::mainNodeThread(void)
     //std::cout << "ceres updated" << std::endl;
     ceres::Solver::Summary summary = ceres_manager_->solve(ceres_options_);
     //std::cout << summary.FullReport() << std::endl;
+    //std::cout << summary.BriefReport() << std::endl;
     ceres_manager_->computeCovariances(wolf_manager_->getProblemPtr());
     //std::cout << "covariances computed" << std::endl;
 
@@ -256,7 +257,7 @@ void WolfAlgNode::mainNodeThread(void)
         tfl_.transformPose("odom", base2map, odom2map);
     
         //invert odom2map to get map2odom, and stamp it
-        //tf::Stamped<tf::Pose> map2odom(odom2map.inverse(), loc_stamp, "map"); 
+        //tf::Stamped<tf::Pose> map2odom(odom2map.inverse(), loc_stamp, "map");
     
         //broadcast map2odom = odom2map.inverse()
         //tfb_.sendTransform( tf::StampedTransform(map2odom, loc_stamp, "map", "odom") );
@@ -409,6 +410,7 @@ void WolfAlgNode::odometry_callback(const nav_msgs::Odometry::ConstPtr& msg)
                                                   TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
                                                   odom_sensor_ptr_,
                                                   Eigen::Vector3s(msg->twist.twist.linear.x*dt,0.0,msg->twist.twist.angular.z*dt)));
+      	  	  	  	  	  	  	  	  	  	  	  //Eigen::Vector3s(msg->pose.pose.position.x,0.0,tf::getYaw(msg->pose.pose.orientation))));
 
       //unlock previously blocked shared variables
       //this->alg_.unlock();
