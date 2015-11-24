@@ -3,7 +3,7 @@
 <launch>
 
     <!-- User Args  -->
-    <arg name="bag_file_name" default="/home/jvallve/bags/TNO-dataset/fused_bag/106_all.bag" /> 
+    <arg name="bag_file_name" default="/home/jvallve/bags/TNO-dataset/106_all.bag" /> 
     <arg name="model" default="$(find agv_description)/model/toyota_car_oct2014.xacro"/>
     
     <!-- Set use_sim_time parameter in the parameter server-->
@@ -14,7 +14,7 @@
     <node pkg="rosbag"
         type="play"
         name="rosbag"
-        args="-d 1 -s 10 -r 02 --clock $(arg bag_file_name)">
+        args="-d 1 -s 10 -r 1 --clock $(arg bag_file_name)">
     </node>
     
     <!-- Run tf_remap's to match robot description frame names -->
@@ -46,7 +46,7 @@
         <param name="laser_3_frame_name" value="agv_lidar3"/>
         <param name="laser_4_frame_name" value="agv_lidar4"/>
         <param name="laser_5_frame_name" value="agv_lidar5"/>
-        <remap from="~odometry" to="/iri_ibeo_pointcloud_2_laserscan/odom_rel"/>
+        <remap from="~odometry" to="/iri_ibeo_pointcloud_2_laserscan/odom"/>
         <remap from="~laser_0" to="/iri_ibeo_pointcloud_2_laserscan/ibeo_1b_laserscan"/>
         <remap from="~laser_1" to="/iri_ibeo_pointcloud_2_laserscan/ibeo_2b_laserscan"/>
         <remap from="~laser_2" to="/iri_ibeo_pointcloud_2_laserscan/ibeo_3b_laserscan"/>

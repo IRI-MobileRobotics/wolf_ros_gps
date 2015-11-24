@@ -2,8 +2,6 @@
 
 WolfAlgNode::WolfAlgNode(void) :
     algorithm_base::IriBaseAlgorithm<WolfAlgorithm>(),
-    odom_sensor_point_(odom_sensor_pose_.data()),
-    odom_sensor_theta_(&odom_sensor_pose_(3)),
     draw_lines_(false),
     last_odom_stamp_(0),
     new_corners_alg_params_(false)
@@ -19,28 +17,21 @@ WolfAlgNode::WolfAlgNode(void) :
     public_node_handle_.param<std::string>("base_frame_name", base_frame_name_, "agv_base_link");
     this->loop_rate_ = 10;//in [Hz] ToDo: should be an input parameter from cfg
  
-    // init ceres
-    ceres_options_.minimizer_type = ceres::LINE_SEARCH;//ceres::TRUST_REGION;
-    ceres_options_.max_line_search_step_contraction = 1e-3;
-    problem_options_.cost_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
-    problem_options_.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
-    problem_options_.local_parameterization_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
-    ceres_manager_ = new CeresManager(problem_options_);
-
     // init wolf odom sensor 
-    odom_sensor_pose_ = Eigen::Vector4s::Zero(); //odom sensor coniciding with vehicle base link: xyz + theta
-    odom_sensor_ptr_ = new SensorOdom2D(&odom_sensor_point_, &odom_sensor_theta_, odom_std[0], odom_std[1]);//both arguments initialized on top
+    odom_sensor_ptr_ = new SensorOdom2D(new StateBlock(Eigen::Vector3s::Zero()), new StateBlock(Eigen::Vector1s::Zero()), odom_std[0], odom_std[1]);//both arguments initialized on top
 
     // init lasers
-    laser_sensor_pose_.resize(n_lasers_);
-    laser_sensor_point_ = std::vector<StatePoint3D*>(n_lasers_, nullptr);
-    laser_sensor_orientation_ = std::vector<StateQuaternion*>(n_lasers_, nullptr);
     laser_sensor_ptr_ = std::vector<SensorLaser2D*>(n_lasers_, nullptr);
     laser_params_set_= std::vector<bool>(n_lasers_, false);
     laser_tf_loaded_= std::vector<bool>(n_lasers_, false);
     line_colors_.resize(n_lasers_);
     laser_subscribers_.resize(n_lasers_);
     laser_frame_name_.resize(n_lasers_);
+
+    //create the manager
+    wolf_manager_ = new WolfManager(PO_2D, state_initial_length, odom_sensor_ptr_,Eigen::Vector3s::Zero(),
+                                    Eigen::Matrix3s::Identity()*0.01, window_length_, new_frame_elapsed_time_);
+    wolf_manager_->addSensor(odom_sensor_ptr_);
 
     //loads the tf of all lasers
     std::stringstream lidar_frame_name_ii;
@@ -55,10 +46,6 @@ WolfAlgNode::WolfAlgNode(void) :
         laser_frame_2_idx_[laser_frame_name_[ii]] = ii;
         loadLaserTf(ii);
     }
-
-    //create the manager
-    wolf_manager_ = new WolfManager<StatePoint2D, StateTheta>(state_initial_length, odom_sensor_ptr_,Eigen::Vector3s::Zero(),
-                                    Eigen::Matrix3s::Identity()*0.01, window_length_, new_frame_elapsed_time_);
 
     // [init publishers]
     this->lines_publisher_ = this->public_node_handle_.advertise<visualization_msgs::MarkerArray>("lines", 2);
@@ -187,6 +174,15 @@ WolfAlgNode::WolfAlgNode(void) :
         vehicle_trajectory_marker.id = ii+1; //0 already taken by the current vehicle
         vehicle_MarkerArray_msg_.markers.push_back(vehicle_trajectory_marker);
     }
+
+    // init ceres
+    ceres_options_.minimizer_type = ceres::LINE_SEARCH;//ceres::TRUST_REGION;
+    ceres_options_.max_line_search_step_contraction = 1e-3;
+    problem_options_.cost_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
+    problem_options_.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
+    problem_options_.local_parameterization_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
+    ceres_manager_ = new CeresManager(wolf_manager_->getProblemPtr(), problem_options_);
+
     ROS_INFO("STARTING IRI WOLF...");
 }
 
@@ -195,11 +191,9 @@ WolfAlgNode::~WolfAlgNode(void)
     //delete allocated memory in reverse order of dependencies
     delete wolf_manager_;
     delete odom_sensor_ptr_;
-    for (uint ii = 0; ii<n_lasers_; ii++)
+    for (unsigned int ii = 0; ii<n_lasers_; ii++)
     {
         delete laser_sensor_ptr_[ii];
-        delete laser_sensor_point_[ii];
-        delete laser_sensor_orientation_[ii];
     }
         
     // [free dynamic memory]
@@ -222,12 +216,12 @@ void WolfAlgNode::mainNodeThread(void)
     //std::cout << "wolf updating..." << std::endl;
     wolf_manager_->update();
     //std::cout << "wolf updated" << std::endl;
-    ceres_manager_->update(wolf_manager_->getProblemPtr());
+    ceres_manager_->update();
     //std::cout << "ceres updated" << std::endl;
     ceres::Solver::Summary summary = ceres_manager_->solve(ceres_options_);
     //std::cout << summary.FullReport() << std::endl;
     //std::cout << summary.BriefReport() << std::endl;
-    ceres_manager_->computeCovariances(wolf_manager_->getProblemPtr());
+    ceres_manager_->computeCovariances();
     //std::cout << "covariances computed" << std::endl;
 
     //unlock everyone
@@ -284,7 +278,7 @@ void WolfAlgNode::mainNodeThread(void)
         vehicle_MarkerArray_msg_.markers[ii].header.frame_id = "map";
         vehicle_MarkerArray_msg_.markers[ii].pose.position.x = *((*fr_it)->getPPtr()->getPtr());
         vehicle_MarkerArray_msg_.markers[ii].pose.position.y = *((*fr_it)->getPPtr()->getPtr()+1);
-        vehicle_MarkerArray_msg_.markers[ii].pose.orientation = tf::createQuaternionMsgFromYaw( (*fr_it)->getOPtr()->getYaw() );
+        vehicle_MarkerArray_msg_.markers[ii].pose.orientation = tf::createQuaternionMsgFromYaw( (*fr_it)->getOPtr()->getVector()(0) );
         vehicle_MarkerArray_msg_.markers[ii].color.a = 0.5; //Show with little transparency
 
         // CONSTRAINTS (odometry)
@@ -313,13 +307,13 @@ void WolfAlgNode::mainNodeThread(void)
         (*fr_it)->getConstraintList(ctr_list);
         for (auto c_it = ctr_list.begin(); c_it != ctr_list.end(); c_it++)
         {
-            if ((*c_it)->getConstraintType() == CTR_CORNER_2D_THETA || (*c_it)->getConstraintType() == CTR_CONTAINER)
+            if ((*c_it)->getCategory() == CTR_LANDMARK)
             {
                 point1.x = *(*fr_it)->getPPtr()->getPtr();
                 point1.y = *((*fr_it)->getPPtr()->getPtr()+1);
                 point1.z = 0.25;
-                point2.x = *((ConstraintCorner2DTheta*)(*c_it))->getLandmarkPtr()->getPPtr()->getPtr();
-                point2.y = *(((ConstraintCorner2DTheta*)(*c_it))->getLandmarkPtr()->getPPtr()->getPtr()+1);
+                point2.x = *(*c_it)->getLandmarkToPtr()->getPPtr()->getPtr();
+                point2.y = *((*c_it)->getLandmarkToPtr()->getPPtr()->getPtr()+1);
                 point2.z = 1.5;
                 constraints_Marker_msg_.points.push_back(point1);
                 constraints_Marker_msg_.points.push_back(point2);
@@ -349,7 +343,7 @@ void WolfAlgNode::mainNodeThread(void)
         new_landmark.pose.position.x = *(*l_it)->getPPtr()->getPtr();
         new_landmark.pose.position.y = *((*l_it)->getPPtr()->getPtr()+1);
         new_landmark.pose.position.z = 1.5;
-        new_landmark.pose.orientation = tf::createQuaternionMsgFromYaw((*l_it)->getOPtr()->getYaw());
+        new_landmark.pose.orientation = tf::createQuaternionMsgFromYaw((*l_it)->getOPtr()->getVector()(0));
 
 
         if ((*l_it)->getType() == LANDMARK_CORNER)
@@ -398,7 +392,7 @@ void WolfAlgNode::mainNodeThread(void)
 
 void WolfAlgNode::odometry_callback(const nav_msgs::Odometry::ConstPtr& msg)
 {
-  //ROS_INFO("WolfAlgNode::relative_odometry_callback: New Message Received");
+  //ROS_INFO("WolfAlgNode::relative_odometry_cal lback: New Message Received");
   if (last_odom_stamp_ != ros::Time(0))
   {
       //use appropiate mutex to shared variables if necessary
@@ -409,8 +403,8 @@ void WolfAlgNode::odometry_callback(const nav_msgs::Odometry::ConstPtr& msg)
       wolf_manager_->addCapture(new CaptureOdom2D(TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
                                                   TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
                                                   odom_sensor_ptr_,
-                                                  Eigen::Vector3s(msg->twist.twist.linear.x*dt,0.0,msg->twist.twist.angular.z*dt)));
-      	  	  	  	  	  	  	  	  	  	  	  //Eigen::Vector3s(msg->pose.pose.position.x,0.0,tf::getYaw(msg->pose.pose.orientation))));
+                                                  Eigen::Vector3s(msg->twist.twist.linear.x*dt, 0. ,msg->twist.twist.angular.z*dt)));
+      	  	  	  	  	  	  	  	  	  	  	  //Eigen::Vector3s(msg->pose.pose.position.x, 0. ,tf::getYaw(msg->pose.pose.orientation))));
 
       //unlock previously blocked shared variables
       //this->alg_.unlock();
@@ -564,24 +558,21 @@ void WolfAlgNode::loadLaserTf(const unsigned int laser_idx)
         tfl_.lookupTransform(base_frame_name_, laser_frame_name_[laser_idx], ros::Time(0), base_2_lidar_ii);
 
         //Set mounting frame. Fill translation part
-        laser_sensor_pose_[laser_idx].head(3) << base_2_lidar_ii.getOrigin().x(),
-                                                 base_2_lidar_ii.getOrigin().y(),
-                                                 base_2_lidar_ii.getOrigin().z();
-
-        //Set mounting frame. Fill quaternion representing rotation part.
-        laser_sensor_pose_[laser_idx].tail(4) << base_2_lidar_ii.getRotation().getX(),
-                                                 base_2_lidar_ii.getRotation().getY(),
-                                                 base_2_lidar_ii.getRotation().getZ(),
-                                                 base_2_lidar_ii.getRotation().getW();
+        Eigen::Matrix<WolfScalar, 7, 1> laser_sensor_pose;
+        laser_sensor_pose << base_2_lidar_ii.getOrigin().x(),
+                             base_2_lidar_ii.getOrigin().y(),
+                             base_2_lidar_ii.getOrigin().z(),
+                             base_2_lidar_ii.getRotation().getX(),
+                             base_2_lidar_ii.getRotation().getY(),
+                             base_2_lidar_ii.getRotation().getZ(),
+                             base_2_lidar_ii.getRotation().getW();
 
         //DEBUG: prints 2D lidar pose
-        std::cout << "LIDAR " << laser_idx << ": " << laser_frame_name_[laser_idx] << ": " << laser_sensor_pose_[laser_idx].transpose() << std::endl;
+        std::cout << "LIDAR " << laser_idx << ": " << laser_frame_name_[laser_idx] << ": " << laser_sensor_pose.transpose() << std::endl;
 
         //set wolf states and sensors
-        laser_sensor_point_[laser_idx] = new StatePoint3D(laser_sensor_pose_[laser_idx].data());
-        laser_sensor_orientation_[laser_idx] = new StateQuaternion(&laser_sensor_pose_[laser_idx](3));
-        laser_sensor_ptr_[laser_idx] = new SensorLaser2D(laser_sensor_point_[laser_idx], laser_sensor_orientation_[laser_idx]);
-
+        laser_sensor_ptr_[laser_idx] = new SensorLaser2D(new StateBlock(laser_sensor_pose.head(3)), new StateBlock(laser_sensor_pose.tail(4), ST_QUATERNION));
+        wolf_manager_->addSensor(laser_sensor_ptr_[laser_idx]);
         laser_tf_loaded_[laser_idx] = true;
 
         std::cout << "LIDAR " << laser_idx << " initiallized" << std::endl;

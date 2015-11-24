@@ -59,27 +59,22 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
     ceres::Problem::Options problem_options_;
     CeresManager* ceres_manager_;
     
-    //Wolf: odom sensors
-    Eigen::Vector4s odom_sensor_pose_; //xyz+theta. It could be part of the state at wolf_manager_->WolfProblem.state_
-    StatePoint3D odom_sensor_point_;
-    StateTheta odom_sensor_theta_;
+    //Wolf: odom sensor
     SensorOdom2D* odom_sensor_ptr_;
     
     //Wolf: laser sensors
-    std::vector<Eigen::Vector7s> laser_sensor_pose_;
-    std::vector<StatePoint3D*> laser_sensor_point_;
-    //std::vector<StateTheta*> laser_sensor_theta_;
-    std::vector<StateQuaternion*> laser_sensor_orientation_;
     std::vector<SensorLaser2D*> laser_sensor_ptr_;
     std::vector<bool> laser_params_set_;
     std::vector<bool> laser_tf_loaded_;
     std::vector<std::string> laser_frame_name_;
-    laserscanutils::ExtractCornerParams corners_alg_params_;
-    bool new_corners_alg_params_;
     std::map<std::string,unsigned int> laser_frame_2_idx_;
 
+    //Wolf: laser processor algorithm
+    laserscanutils::ExtractCornerParams corners_alg_params_;
+    bool new_corners_alg_params_;
+
     //Wolf: manager
-    WolfManager<StatePoint2D, StateTheta>* wolf_manager_;
+    WolfManager* wolf_manager_;
     
     //visualization
     std::vector<std_msgs::ColorRGBA> line_colors_;

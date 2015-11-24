@@ -27,7 +27,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: FR Laser
+    SyncSource: SR Laser
 Visualization Manager:
   Class: ""
   Displays:
