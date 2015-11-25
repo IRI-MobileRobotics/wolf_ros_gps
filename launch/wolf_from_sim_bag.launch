@@ -22,7 +22,7 @@
         type="iri_wolf"
         output="screen">
         <param name="window_length" value="50"/>
-        <param name="new_frame_elapsed_time" value="1"/>
+        <param name="new_frame_elapsed_time" value="5"/>
         <param name="segment_window_length" value="0.5"/>
         <param name="min_window_points" value="5"/>
         <param name="k_sigmas_ut" value="2"/>

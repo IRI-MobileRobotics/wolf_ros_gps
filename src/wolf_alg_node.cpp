@@ -281,44 +281,82 @@ void WolfAlgNode::mainNodeThread(void)
         vehicle_MarkerArray_msg_.markers[ii].pose.orientation = tf::createQuaternionMsgFromYaw( (*fr_it)->getOPtr()->getVector()(0) );
         vehicle_MarkerArray_msg_.markers[ii].color.a = 0.5; //Show with little transparency
 
-        // CONSTRAINTS (odometry)
-        point1.x = *(*fr_it)->getPPtr()->getPtr();
-        point1.y = *((*fr_it)->getPPtr()->getPtr()+1);
-        point1.z = 0.25;
-        if (ii == 1)
-        {
-            point2.x = map2base.getOrigin().x();
-            point2.y = map2base.getOrigin().y();
-            point2.z = 0.25;
-        }
-        else
-        {
-            auto next_frame = fr_it; //inverse iterator
-            next_frame--;
-            point2.x = *(*next_frame)->getPPtr()->getPtr();
-            point2.y = *((*next_frame)->getPPtr()->getPtr()+1);
-            point2.z = 0.25;
-        }
-        constraints_Marker_msg_.points.push_back(point1);
-        constraints_Marker_msg_.points.push_back(point2);
-
-        // CONSTRAINTS (landmarks)
+        // CONSTRAINTS
         ctr_list.clear();
         (*fr_it)->getConstraintList(ctr_list);
         for (auto c_it = ctr_list.begin(); c_it != ctr_list.end(); c_it++)
         {
-            if ((*c_it)->getCategory() == CTR_LANDMARK)
+            switch ((*c_it)->getCategory())
             {
-                point1.x = *(*fr_it)->getPPtr()->getPtr();
-                point1.y = *((*fr_it)->getPPtr()->getPtr()+1);
-                point1.z = 0.25;
-                point2.x = *(*c_it)->getLandmarkToPtr()->getPPtr()->getPtr();
-                point2.y = *((*c_it)->getLandmarkToPtr()->getPPtr()->getPtr()+1);
-                point2.z = 1.5;
-                constraints_Marker_msg_.points.push_back(point1);
-                constraints_Marker_msg_.points.push_back(point2);
+                // Odometry
+                case CTR_FRAME:
+                {
+                    // from
+                    point1.x = *(*fr_it)->getPPtr()->getPtr();
+                    point1.y = *((*fr_it)->getPPtr()->getPtr()+1);
+                    point1.z = 0.25;
+                    // to
+                    point2.x = *(*c_it)->getFrameToPtr()->getPPtr()->getPtr();
+                    point2.y = *((*c_it)->getFrameToPtr()->getPPtr()->getPtr()+1);
+                    point2.z = 0.25;
+                    break;
+                }
+                // Landmarks
+                case CTR_LANDMARK:
+                {
+                    // from
+                    point1.x = *(*fr_it)->getPPtr()->getPtr();
+                    point1.y = *((*fr_it)->getPPtr()->getPtr()+1);
+                    point1.z = 0.25;
+                    // to
+                    point2.x = *(*c_it)->getLandmarkToPtr()->getPPtr()->getPtr();
+                    point2.y = *((*c_it)->getLandmarkToPtr()->getPPtr()->getPtr()+1);
+                    point2.z = 1.5;
+                    break;
+                }
             }
+            constraints_Marker_msg_.points.push_back(point1);
+            constraints_Marker_msg_.points.push_back(point2);
         }
+
+//        // CONSTRAINTS (odometry)
+//        point1.x = *(*fr_it)->getPPtr()->getPtr();
+//        point1.y = *((*fr_it)->getPPtr()->getPtr()+1);
+//        point1.z = 0.25;
+//        if (ii == 1)
+//        {
+//            point2.x = map2base.getOrigin().x();
+//            point2.y = map2base.getOrigin().y();
+//            point2.z = 0.25;
+//        }
+//        else
+//        {
+//            auto next_frame = fr_it; //inverse iterator
+//            next_frame--;
+//            point2.x = *(*next_frame)->getPPtr()->getPtr();
+//            point2.y = *((*next_frame)->getPPtr()->getPtr()+1);
+//            point2.z = 0.25;
+//        }
+//        constraints_Marker_msg_.points.push_back(point1);
+//        constraints_Marker_msg_.points.push_back(point2);
+//
+//        // CONSTRAINTS (landmarks)
+//        ctr_list.clear();
+//        (*fr_it)->getConstraintList(ctr_list);
+//        for (auto c_it = ctr_list.begin(); c_it != ctr_list.end(); c_it++)
+//        {
+//            if ((*c_it)->getCategory() == CTR_LANDMARK)
+//            {
+//                point1.x = *(*fr_it)->getPPtr()->getPtr();
+//                point1.y = *((*fr_it)->getPPtr()->getPtr()+1);
+//                point1.z = 0.25;
+//                point2.x = *(*c_it)->getLandmarkToPtr()->getPPtr()->getPtr();
+//                point2.y = *((*c_it)->getLandmarkToPtr()->getPPtr()->getPtr()+1);
+//                point2.z = 1.5;
+//                constraints_Marker_msg_.points.push_back(point1);
+//                constraints_Marker_msg_.points.push_back(point2);
+//            }
+//        }
     }
 
     // MARKERS LANDMARKS
@@ -558,20 +596,21 @@ void WolfAlgNode::loadLaserTf(const unsigned int laser_idx)
         tfl_.lookupTransform(base_frame_name_, laser_frame_name_[laser_idx], ros::Time(0), base_2_lidar_ii);
 
         //Set mounting frame. Fill translation part
-        Eigen::Matrix<WolfScalar, 7, 1> laser_sensor_pose;
+        Eigen::Matrix<WolfScalar, 3, 1> laser_sensor_pose;
         laser_sensor_pose << base_2_lidar_ii.getOrigin().x(),
                              base_2_lidar_ii.getOrigin().y(),
-                             base_2_lidar_ii.getOrigin().z(),
-                             base_2_lidar_ii.getRotation().getX(),
-                             base_2_lidar_ii.getRotation().getY(),
-                             base_2_lidar_ii.getRotation().getZ(),
-                             base_2_lidar_ii.getRotation().getW();
+                             //base_2_lidar_ii.getOrigin().z(),
+                             tf::getYaw(base_2_lidar_ii.getRotation());
+                             //base_2_lidar_ii.getRotation().getX(),
+                             //base_2_lidar_ii.getRotation().getY(),
+                             //base_2_lidar_ii.getRotation().getZ(),
+                             //base_2_lidar_ii.getRotation().getW();
 
         //DEBUG: prints 2D lidar pose
         std::cout << "LIDAR " << laser_idx << ": " << laser_frame_name_[laser_idx] << ": " << laser_sensor_pose.transpose() << std::endl;
 
         //set wolf states and sensors
-        laser_sensor_ptr_[laser_idx] = new SensorLaser2D(new StateBlock(laser_sensor_pose.head(3)), new StateBlock(laser_sensor_pose.tail(4), ST_QUATERNION));
+        laser_sensor_ptr_[laser_idx] = new SensorLaser2D(new StateBlock(laser_sensor_pose.head(2)), new StateBlock(laser_sensor_pose.tail(1)));
         wolf_manager_->addSensor(laser_sensor_ptr_[laser_idx]);
         laser_tf_loaded_[laser_idx] = true;
 
