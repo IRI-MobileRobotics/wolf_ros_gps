@@ -103,6 +103,7 @@ message("laser_scan_utils_INCLUDE_DIRS: ${laser_scan_utils_INCLUDE_DIRS}")
 
 ## Declare a cpp executable
 add_executable(${PROJECT_NAME} src/wolf_alg.cpp src/wolf_alg_node.cpp)
+add_executable(iri_wolf_prunning src/wolf_prunning_test.cpp)
 
 # ******************************************************************** 
 #                   Add the libraries
@@ -111,6 +112,9 @@ target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
 target_link_libraries(${PROJECT_NAME} ${Ceres_LIBRARIES})
 target_link_libraries(${PROJECT_NAME} ${laser_scan_utils_LIBRARY})
 target_link_libraries(${PROJECT_NAME} ${wolf_LIBRARY})
+target_link_libraries(iri_wolf_prunning ${catkin_LIBRARIES})
+target_link_libraries(iri_wolf_prunning ${Ceres_LIBRARIES})
+target_link_libraries(iri_wolf_prunning ${wolf_LIBRARY})
 
 # ******************************************************************** 
 #               Add message headers dependencies 

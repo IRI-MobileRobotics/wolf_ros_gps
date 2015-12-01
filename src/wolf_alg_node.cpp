@@ -190,11 +190,6 @@ WolfAlgNode::~WolfAlgNode(void)
 {
     //delete allocated memory in reverse order of dependencies
     delete wolf_manager_;
-    delete odom_sensor_ptr_;
-    for (unsigned int ii = 0; ii<n_lasers_; ii++)
-    {
-        delete laser_sensor_ptr_[ii];
-    }
         
     // [free dynamic memory]
     pthread_mutex_destroy(&this->odometry_mutex_);
@@ -258,6 +253,9 @@ void WolfAlgNode::mainNodeThread(void)
         tfb_.sendTransform( tf::StampedTransform(odom2map.inverse(), loc_stamp, "map", "odom") );
         
     }
+    else
+        ROS_WARN("No odom to base frame received");
+
     //End Broadcast transform -----------------------------------------------------------------------------
 
     // [fill msg structures]
