@@ -3,6 +3,7 @@
 #include "ros/time.h"
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
+#include <tf/transform_datatypes.h>
 
 //C includes for sleep, time and main args
 #include "unistd.h"
@@ -35,11 +36,16 @@ int main(int argc, char **argv)
     Eigen::MatrixXs Sigma_ii(3,3), Sigma_ij(3,3), Sigma_jj(3,3), Sigma_z(3,3), Ji(3,3), Jj(3,3);
     WolfScalar xi, yi, thi, si, ci, xj, yj;
     double t_sigma_ceres, t_sigma_manual, t_ig;
+    WolfScalar ig_threshold_;
     ros::Time t1;
 
     visualization_msgs::Marker prior_marker_, prunned_solution_marker_, full_solution_marker_;
     prior_marker_.type = visualization_msgs::Marker::LINE_STRIP;
     prior_marker_.header.frame_id = "map";
+    prior_marker_.pose.position.x = 0;
+    prior_marker_.pose.position.x = 0;
+    prior_marker_.pose.position.x = 0;
+    prior_marker_.pose.orientation = tf::createQuaternionMsgFromYaw(0.0);
     prior_marker_.scale.x = 0.1;
     prior_marker_.color.r = 1; //yellow
     prior_marker_.color.g = 1;
@@ -86,8 +92,9 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "wolf_prunnning");
 
     ros::NodeHandle nh("~");
-    nh.param<std::string>("file_path", file_path_, "/home/jvallve/iri-lab/labrobotica/algorithms/wolf/trunk/src/examples/input_M3500b_toro.graph");
+    nh.param<std::string>("file_path", file_path_, "/home/jvallve/bags/graphs/input_M3500b_toro.graph");
     nh.param<int>("max_vertex", max_vertex_, 0);
+    nh.param<double>("ig_threshold", ig_threshold_, 0);
     ros::Publisher prior_publisher = nh.advertise <visualization_msgs::Marker> ("prior",1);
     ros::Publisher prunned_solution_publisher = nh.advertise <visualization_msgs::Marker> ("prunned_solution",1);
     ros::Publisher full_solution_publisher = nh.advertise <visualization_msgs::Marker> ("full_solution",1);
@@ -397,7 +404,7 @@ bool loadGraphFile(const std::string& file_path, WolfProblem* wolf_problem_full,
     }
     else
     {
-        printf("\nError opening file\n");
+        printf("\nError opening file!\n");
         return false;
     }
 }
@@ -450,6 +457,6 @@ void wolfToMarker(visualization_msgs::Marker& marker, WolfProblem* wolf_problem_
         point.x = *(*fr_it)->getPPtr()->getPtr();
         point.y = *((*fr_it)->getPPtr()->getPtr()+1);
         point.z = 0.;
+        marker.points.push_back(point);
     }
-    marker.points.push_back(point);
 }
