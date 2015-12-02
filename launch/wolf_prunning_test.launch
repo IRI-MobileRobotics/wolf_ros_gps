@@ -5,6 +5,7 @@
 <!-- User Args  -->
 <arg name="max_vertex" default="0" /> 
 <arg name="file" default="/home/jvallve/bags/graphs/input_M3500b_toro.graph" /> 
+<arg name="ig_theshold" default="1" /> 
 
 <!--WOLF-->
 <node name="iri_wolf_prunning"
