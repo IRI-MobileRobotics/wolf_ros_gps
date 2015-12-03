@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
-  <name>iri_wolf</name>
+  <name>wolf_ros</name>
   <version>0.0.0</version>
-  <description>The iri_wolf package</description>
+  <description>The wolf_ros package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag --> 
   <!-- Example:  -->

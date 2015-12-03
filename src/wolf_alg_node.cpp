@@ -8,12 +8,10 @@ WolfAlgNode::WolfAlgNode(void) :
 {
     //init class attributes if necessary
     WolfScalar odom_std[2];
-    int state_initial_length;
     public_node_handle_.param<int>("n_lasers", n_lasers_, 6);
     public_node_handle_.param<int>("window_length", window_length_, 35);
     public_node_handle_.param<double>("odometry_translational_std", odom_std[0], 0.2);
     public_node_handle_.param<double>("odometry_rotational_std", odom_std[1], 0.2);
-    public_node_handle_.param<int>("state_initial_length", state_initial_length, 1e6);
     public_node_handle_.param<std::string>("base_frame_name", base_frame_name_, "agv_base_link");
     this->loop_rate_ = 10;//in [Hz] ToDo: should be an input parameter from cfg
  
@@ -29,8 +27,7 @@ WolfAlgNode::WolfAlgNode(void) :
     laser_frame_name_.resize(n_lasers_);
 
     //create the manager
-    wolf_manager_ = new WolfManager(PO_2D, state_initial_length, odom_sensor_ptr_,Eigen::Vector3s::Zero(),
-                                    Eigen::Matrix3s::Identity()*0.01, window_length_, new_frame_elapsed_time_);
+    wolf_manager_ = new WolfManager(PO_2D, odom_sensor_ptr_,Eigen::Vector3s::Zero(), Eigen::Matrix3s::Identity()*0.01, window_length_, new_frame_elapsed_time_);
     wolf_manager_->addSensor(odom_sensor_ptr_);
 
     //loads the tf of all lasers
