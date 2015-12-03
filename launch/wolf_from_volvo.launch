@@ -26,9 +26,9 @@
     </node>
     
     <!--WOLF-->
-    <node name="iri_wolf"
-        pkg="iri_wolf"
-        type="iri_wolf"
+    <node name="wolf_ros"
+        pkg="wolf_ros"
+        type="wolf_ros"
         output="screen">
         <param name="window_length" value="100"/>
         <param name="new_frame_elapsed_time" value="2"/>
@@ -48,6 +48,6 @@
         <node name="rviz"
             pkg="rviz"
             type="rviz" 
-            args="-d $(find iri_wolf)/config/volvo.rviz" />
+            args="-d $(find wolf_ros)/config/volvo.rviz" />
     </group>
 </launch>

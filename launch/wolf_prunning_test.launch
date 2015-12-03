@@ -8,9 +8,9 @@
 <arg name="ig_theshold" default="1" /> 
 
 <!--WOLF-->
-<node name="iri_wolf_prunning"
-      pkg="iri_wolf"
-      type="iri_wolf_prunning"
+<node name="wolf_prunning"
+      pkg="wolf_ros"
+      type="wolf_prunning"
       output="screen">
       <param name="~max_vertex" value="$(arg max_vertex)"/>
       <param name="~file_path" value="$(arg file)"/>
@@ -21,6 +21,6 @@
 <node name="rviz"
       pkg="rviz"
       type="rviz" 
-      args="-d $(find iri_wolf)/config/wolf_prunning.rviz" />
+      args="-d $(find wolf_ros)/config/wolf_prunning.rviz" />
 
 </launch>
