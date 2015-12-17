@@ -6,6 +6,7 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
+        - /Constraints1
         - /TF1
       Splitter Ratio: 0.5
     Tree Height: 687
@@ -27,7 +28,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: SR Laser
 Visualization Manager:
   Class: ""
   Displays:
@@ -277,10 +278,10 @@ Visualization Manager:
       Value: true
     - Class: rviz/MarkerArray
       Enabled: true
-      Marker Topic: /iri_wolf/corners
+      Marker Topic: /wolf_ros/corners
       Name: Landmarks
       Namespaces:
-        {}
+        /landmarks: true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -293,18 +294,18 @@ Visualization Manager:
       Value: true
     - Class: rviz/MarkerArray
       Enabled: true
-      Marker Topic: /iri_wolf/vehicle
+      Marker Topic: /wolf_ros/vehicle
       Name: vehicle
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /iri_wolf/constraints
+      Marker Topic: /wolf_ros/constraints
       Name: Constraints
       Namespaces:
-        {}
+        /constraints: true
       Queue Size: 100
       Value: true
     - Class: rviz/TF
@@ -312,13 +313,83 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: true
+        agv_base_link:
+          Value: true
+        agv_bl_hinge:
+          Value: true
+        agv_bl_lidar:
+          Value: true
+        agv_bl_wheel:
+          Value: true
+        agv_br_hinge:
+          Value: true
+        agv_br_lidar:
+          Value: true
+        agv_br_wheel:
+          Value: true
+        agv_fl_hinge:
+          Value: true
+        agv_fl_lidar:
+          Value: true
+        agv_fl_wheel:
+          Value: true
+        agv_footprint:
+          Value: true
+        agv_fr_hinge:
+          Value: true
+        agv_fr_lidar:
+          Value: true
+        agv_fr_wheel:
+          Value: true
+        agv_fwd_mark:
+          Value: true
+        agv_platform:
+          Value: true
+        agv_sl_lidar:
+          Value: true
+        agv_sr_lidar:
+          Value: true
+        map:
+          Value: true
+        odom:
+          Value: true
       Marker Scale: 1
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: true
       Tree:
-        {}
+        map:
+          odom:
+            agv_footprint:
+              agv_base_link:
+                agv_platform:
+                  agv_bl_hinge:
+                    agv_bl_wheel:
+                      {}
+                  agv_bl_lidar:
+                    {}
+                  agv_br_hinge:
+                    agv_br_wheel:
+                      {}
+                  agv_br_lidar:
+                    {}
+                  agv_fl_hinge:
+                    agv_fl_wheel:
+                      {}
+                  agv_fl_lidar:
+                    {}
+                  agv_fr_hinge:
+                    agv_fr_wheel:
+                      {}
+                  agv_fr_lidar:
+                    {}
+                  agv_fwd_mark:
+                    {}
+                  agv_sl_lidar:
+                    {}
+                  agv_sr_lidar:
+                    {}
       Update Interval: 0
       Value: true
   Enabled: true
@@ -378,5 +449,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1281
-  X: 379
+  X: 369
   Y: 14

@@ -25,6 +25,14 @@
 #ifndef _wolf_alg_node_h_
 #define _wolf_alg_node_h_
 
+//laser_scan_utils
+#include "laser_scan_utils/entities.h"
+#include "laser_scan_utils/corner_detector.h"
+
+//wolf
+#include "wolf/sensor_laser_2D.h"
+#include "wolf/processor_laser_2D.h"
+
 //iri base 
 #include <iri_base_algorithm/iri_base_algorithm.h>
 
@@ -50,7 +58,7 @@
 class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
 {
   private:
-    bool draw_lines_;
+    bool draw_lines_, use_auto_diff_wrapper_, apply_loss_function_;
     int window_length_, n_lasers_;
     double new_frame_elapsed_time_;
     

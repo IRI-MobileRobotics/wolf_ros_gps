@@ -5,6 +5,7 @@
     <arg name="bag_file_name" default="/home/jvallve/bags/simulation/agv_gazebo_2015-10-23-18-19-44.bag" /> 
     <arg name="model" default="$(find agv_description)/urdf/agv.xacro"/> 
     <arg name="rviz" default="true" /> 
+    <arg name="use_auto_diff_wrapper" default="false" />	
     
     <!-- Set use_sim_time parameter in the parameter server-->
     <param name="use_sim_time" value="true" />
@@ -21,6 +22,7 @@
         pkg="wolf_ros"
         type="wolf_ros"
         output="screen">
+        <param name="use_auto_diff_wrapper" value="$(arg use_auto_diff_wrapper)"/>
         <param name="window_length" value="50"/>
         <param name="new_frame_elapsed_time" value="5"/>
         <param name="segment_window_length" value="0.5"/>

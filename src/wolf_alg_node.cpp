@@ -8,6 +8,8 @@ WolfAlgNode::WolfAlgNode(void) :
 {
     //init class attributes if necessary
     WolfScalar odom_std[2];
+    public_node_handle_.param<bool>("use_auto_diff_wrapper", use_auto_diff_wrapper_, false);
+    public_node_handle_.param<bool>("apply_loss_function", apply_loss_function_, false);
     public_node_handle_.param<int>("n_lasers", n_lasers_, 6);
     public_node_handle_.param<int>("window_length", window_length_, 35);
     public_node_handle_.param<double>("odometry_translational_std", odom_std[0], 0.2);
@@ -16,7 +18,7 @@ WolfAlgNode::WolfAlgNode(void) :
     this->loop_rate_ = 10;//in [Hz] ToDo: should be an input parameter from cfg
  
     // init wolf odom sensor 
-    odom_sensor_ptr_ = new SensorOdom2D(new StateBlock(Eigen::Vector3s::Zero()), new StateBlock(Eigen::Vector1s::Zero()), odom_std[0], odom_std[1]);//both arguments initialized on top
+    odom_sensor_ptr_ = new SensorOdom2D(new StateBlock(Eigen::Vector2s::Zero()), new StateBlock(Eigen::Vector1s::Zero()), odom_std[0], odom_std[1]);//both arguments initialized on top
 
     // init lasers
     laser_sensor_ptr_ = std::vector<SensorLaser2D*>(n_lasers_, nullptr);
@@ -208,10 +210,12 @@ void WolfAlgNode::mainNodeThread(void)
     //std::cout << "wolf updating..." << std::endl;
     wolf_manager_->update();
     //std::cout << "wolf updated" << std::endl;
-    ceres_manager_->update();
+    ceres_manager_->update(use_auto_diff_wrapper_, apply_loss_function_);
     //std::cout << "ceres updated" << std::endl;
     ceres::Solver::Summary summary = ceres_manager_->solve(ceres_options_);
-    //std::cout << summary.FullReport() << std::endl;
+    std::cout << "------------------------- SOLVED -------------------------" << std::endl;
+    std::cout << (use_auto_diff_wrapper_ ? "AUTO DIFF WRAPPER" : "CERES AUTO DIFF") << std::endl;
+    std::cout << summary.FullReport() << std::endl;
     //std::cout << summary.BriefReport() << std::endl;
     ceres_manager_->computeCovariances();
     //std::cout << "covariances computed" << std::endl;
@@ -291,8 +295,8 @@ void WolfAlgNode::mainNodeThread(void)
                     point1.y = *((*fr_it)->getPPtr()->getPtr()+1);
                     point1.z = 0.25;
                     // to
-                    point2.x = *(*c_it)->getFrameToPtr()->getPPtr()->getPtr();
-                    point2.y = *((*c_it)->getFrameToPtr()->getPPtr()->getPtr()+1);
+                    point2.x = *(*c_it)->getFrameOtherPtr()->getPPtr()->getPtr();
+                    point2.y = *((*c_it)->getFrameOtherPtr()->getPPtr()->getPtr()+1);
                     point2.z = 0.25;
                     break;
                 }
@@ -304,8 +308,8 @@ void WolfAlgNode::mainNodeThread(void)
                     point1.y = *((*fr_it)->getPPtr()->getPtr()+1);
                     point1.z = 0.25;
                     // to
-                    point2.x = *(*c_it)->getLandmarkToPtr()->getPPtr()->getPtr();
-                    point2.y = *((*c_it)->getLandmarkToPtr()->getPPtr()->getPtr()+1);
+                    point2.x = *(*c_it)->getLandmarkOtherPtr()->getPPtr()->getPtr();
+                    point2.y = *((*c_it)->getLandmarkOtherPtr()->getPPtr()->getPtr()+1);
                     point2.z = 1.5;
                     break;
                 }
@@ -313,45 +317,6 @@ void WolfAlgNode::mainNodeThread(void)
             constraints_Marker_msg_.points.push_back(point1);
             constraints_Marker_msg_.points.push_back(point2);
         }
-
-//        // CONSTRAINTS (odometry)
-//        point1.x = *(*fr_it)->getPPtr()->getPtr();
-//        point1.y = *((*fr_it)->getPPtr()->getPtr()+1);
-//        point1.z = 0.25;
-//        if (ii == 1)
-//        {
-//            point2.x = map2base.getOrigin().x();
-//            point2.y = map2base.getOrigin().y();
-//            point2.z = 0.25;
-//        }
-//        else
-//        {
-//            auto next_frame = fr_it; //inverse iterator
-//            next_frame--;
-//            point2.x = *(*next_frame)->getPPtr()->getPtr();
-//            point2.y = *((*next_frame)->getPPtr()->getPtr()+1);
-//            point2.z = 0.25;
-//        }
-//        constraints_Marker_msg_.points.push_back(point1);
-//        constraints_Marker_msg_.points.push_back(point2);
-//
-//        // CONSTRAINTS (landmarks)
-//        ctr_list.clear();
-//        (*fr_it)->getConstraintList(ctr_list);
-//        for (auto c_it = ctr_list.begin(); c_it != ctr_list.end(); c_it++)
-//        {
-//            if ((*c_it)->getCategory() == CTR_LANDMARK)
-//            {
-//                point1.x = *(*fr_it)->getPPtr()->getPtr();
-//                point1.y = *((*fr_it)->getPPtr()->getPtr()+1);
-//                point1.z = 0.25;
-//                point2.x = *(*c_it)->getLandmarkToPtr()->getPPtr()->getPtr();
-//                point2.y = *((*c_it)->getLandmarkToPtr()->getPPtr()->getPtr()+1);
-//                point2.z = 1.5;
-//                constraints_Marker_msg_.points.push_back(point1);
-//                constraints_Marker_msg_.points.push_back(point2);
-//            }
-//        }
     }
 
     // MARKERS LANDMARKS
@@ -486,7 +451,7 @@ void WolfAlgNode::laser_callback(const sensor_msgs::LaserScan::ConstPtr& msg)
         if (draw_lines_)
             computeLaserScan(new_capture, msg->header, lidar_id);
 
-        //std::cout << msg->data << std::endl;
+        //std::cout << "capture added" << std::endl;
         //unlock previously blocked shared variables
         //this->alg_.unlock();
         this->laser_mutex_exit();
@@ -558,25 +523,25 @@ void WolfAlgNode::updateLaserParams(const unsigned int _laser_idx, const sensor_
 
 void WolfAlgNode::computeLaserScan(CaptureLaser2D* new_capture, const std_msgs::Header & header, const unsigned int laser_idx)
 {
-    std::list<laserscanutils::Line> line_list;
-    new_capture->extractLines(line_list);
-
-    lines_MarkerArray_msg_.markers[laser_idx].points.clear();
-    lines_MarkerArray_msg_.markers[laser_idx].header.stamp = header.stamp;
-    lines_MarkerArray_msg_.markers[laser_idx].header.frame_id = header.frame_id;
-
-    for (auto line_it = line_list.begin(); line_it != line_list.end(); line_it++ )
-    {
-      geometry_msgs::Point point1, point2;
-      point1.x = line_it->point_first_(0);
-      point1.y = line_it->point_first_(1);
-      point1.z = 1.5;
-      point2.x = line_it->point_last_(0);
-      point2.y = line_it->point_last_(1);
-      point2.z = 1.5;
-      lines_MarkerArray_msg_.markers[laser_idx].points.push_back(point1);
-      lines_MarkerArray_msg_.markers[laser_idx].points.push_back(point2);
-    }
+//    std::list<laserscanutils::Line> line_list;
+//    new_capture->extractLines(line_list);
+//
+//    lines_MarkerArray_msg_.markers[laser_idx].points.clear();
+//    lines_MarkerArray_msg_.markers[laser_idx].header.stamp = header.stamp;
+//    lines_MarkerArray_msg_.markers[laser_idx].header.frame_id = header.frame_id;
+//
+//    for (auto line_it = line_list.begin(); line_it != line_list.end(); line_it++ )
+//    {
+//      geometry_msgs::Point point1, point2;
+//      point1.x = line_it->point_first_(0);
+//      point1.y = line_it->point_first_(1);
+//      point1.z = 1.5;
+//      point2.x = line_it->point_last_(0);
+//      point2.y = line_it->point_last_(1);
+//      point2.z = 1.5;
+//      lines_MarkerArray_msg_.markers[laser_idx].points.push_back(point1);
+//      lines_MarkerArray_msg_.markers[laser_idx].points.push_back(point2);
+//    }
 }
 
 void WolfAlgNode::loadLaserTf(const unsigned int laser_idx)
@@ -607,6 +572,7 @@ void WolfAlgNode::loadLaserTf(const unsigned int laser_idx)
         //set wolf states and sensors
         laser_sensor_ptr_[laser_idx] = new SensorLaser2D(new StateBlock(laser_sensor_pose.head(2)), new StateBlock(laser_sensor_pose.tail(1)));
         wolf_manager_->addSensor(laser_sensor_ptr_[laser_idx]);
+        laser_sensor_ptr_[laser_idx]->addProcessor(new ProcessorLaser2D());
         laser_tf_loaded_[laser_idx] = true;
 
         std::cout << "LIDAR " << laser_idx << " initiallized" << std::endl;
