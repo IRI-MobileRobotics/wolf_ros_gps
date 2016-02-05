@@ -113,7 +113,7 @@ target_link_libraries(${PROJECT_NAME} ${Ceres_LIBRARIES})
 target_link_libraries(${PROJECT_NAME} ${laser_scan_utils_LIBRARY})
 target_link_libraries(${PROJECT_NAME} ${wolf_LIBRARY})
 target_link_libraries(wolf_prunning ${catkin_LIBRARIES})
-target_link_libraries(wolf_prunning ${Ceres_LIBRARIES})
+target_link_libraries(wolf_prunning ${CERES_LIBRARIES})
 target_link_libraries(wolf_prunning ${wolf_LIBRARY})
 
 # ******************************************************************** 
