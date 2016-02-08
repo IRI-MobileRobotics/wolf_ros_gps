@@ -26,7 +26,7 @@
 #define _wolf_alg_h_
 
 //this package
-#include <iri_wolf/WolfConfig.h>
+#include <wolf_ros/WolfConfig.h>
 
 //include wolf_alg main library
 #include "wolf/wolf_manager.h"
@@ -65,7 +65,7 @@ class WolfAlgorithm
     * Define a Config type with the WolfConfig. All driver implementations
     * will then use the same variable type Config.
     */
-    typedef iri_wolf::WolfConfig Config;
+    typedef wolf_ros::WolfConfig Config;
 
    /**
     * \brief config variable
