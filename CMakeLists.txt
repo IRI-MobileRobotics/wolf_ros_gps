@@ -104,6 +104,7 @@ message("laser_scan_utils_INCLUDE_DIRS: ${laser_scan_utils_INCLUDE_DIRS}")
 ## Declare a cpp executable
 add_executable(${PROJECT_NAME} src/wolf_alg.cpp src/wolf_alg_node.cpp)
 add_executable(wolf_prunning src/wolf_prunning_test.cpp)
+add_executable(wolf_gps_node src/wolf_gps_main.cpp src/wolf_gps_node.cpp)
 
 # ******************************************************************** 
 #                   Add the libraries
@@ -115,6 +116,9 @@ target_link_libraries(${PROJECT_NAME} ${wolf_LIBRARY})
 target_link_libraries(wolf_prunning ${catkin_LIBRARIES})
 target_link_libraries(wolf_prunning ${CERES_LIBRARIES})
 target_link_libraries(wolf_prunning ${wolf_LIBRARY})
+target_link_libraries(wolf_gps_node ${catkin_LIBRARIES})
+target_link_libraries(wolf_gps_node ${CERES_LIBRARIES})
+target_link_libraries(wolf_gps_node ${wolf_LIBRARY})
 
 # ******************************************************************** 
 #               Add message headers dependencies 
