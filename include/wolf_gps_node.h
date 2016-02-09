@@ -23,11 +23,8 @@
  *      ROS includes      *
  **************************/
 #include <ros/ros.h>
-#ifdef _HAVE_GPS
-#include "iri_asterx1_gps/GPS_meas.h"
-#include "iri_asterx1_gps/GPS_raw_frames.h"
-#include "iri_asterx1_gps/NavSatFix_ecef.h"
-#endif
+
+#include "iri_common_drivers_msgs/SatellitePseudorangeArray.h"
 
 /**************************
  *      STD includes      *
@@ -54,10 +51,7 @@ public:
     void createFrame(const TimeStamp& _time_stamp);
     void manageWindow();
 
-#ifdef _HAVE_GPS
-    void obsCallback(const iri_asterx1_gps::GPS_meas::ConstPtr& msg);
-    void navCallback(const iri_asterx1_gps::GPS_raw_frames::ConstPtr& msg);
-#endif
+    void obsCallback(const iri_common_drivers_msgs::SatellitePseudorangeArray::ConstPtr& msg);
 
 protected:
     void initCeresManager();
@@ -104,7 +98,6 @@ protected:
      */
     // Subscribers
     ros::Subscriber obs_sub_; // obs (measurements) subscriber
-    ros::Subscriber nav_sub_; // nav subscriber
     // ROS node handle
     ros::NodeHandle nh_;
 

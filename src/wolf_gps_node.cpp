@@ -55,10 +55,8 @@ WolfGPSNode::WolfGPSNode(StateBlock* _sensor_p,
     problem_->getHardwarePtr()->addSensor(gps_sensor_ptr_);
 
     // Subscriber
-    #ifdef _HAVE_GPS
-    obs_sub_ = nh_.subscribe("/iri_asterx1_gps/gps_meas", 1000, &WolfGPSNode::obsCallback, this);
-    nav_sub_ = nh_.subscribe("/iri_asterx1_gps/gps_raw_data", 1000, &WolfGPSNode::navCallback, this);
-    #endif
+    obs_sub_ = nh_.subscribe("/sat_pseudoranges", 1000, &WolfGPSNode::obsCallback, this);
+
 }
 
 WolfGPSNode::~WolfGPSNode()
@@ -144,18 +142,12 @@ void WolfGPSNode::initCeresManager()
 
 }
 
-#ifdef _HAVE_GPS
-void WolfGPSNode::obsCallback(const iri_asterx1_gps::GPS_meas::ConstPtr& msg)
+void WolfGPSNode::obsCallback(const iri_common_drivers_msgs::SatellitePseudorangeArray::ConstPtr& msg)
 {
     std::cout << "WolfGPSNode::obsCallback -- TODO\n";
     //TODO create gps capture
-}
-#endif
 
-#ifdef _HAVE_GPS
-void WolfGPSNode::navCallback(const iri_asterx1_gps::GPS_raw_frames::ConstPtr& msg)
-{
-    std::cout << "WolfGPSNode::navCallback -- TODO\n";
-    //TODO decide where to put all of this stuff
+    // msg contains directly a vector of measurements!!! sat pos, vel and pseudorange!
+
 }
-#endif
+

@@ -32,13 +32,6 @@ find_package(Ceres REQUIRED)
 find_package(laser_scan_utils REQUIRED)
 find_package(wolf REQUIRED)
 
-# ********************************************************************
-#           Add GPS dependencies here
-# ********************************************************************
-FIND_PATH(asterx1_ros_wrapper_FOUND GPS_raw_frames.h ${CATKIN_DEVEL_PREFIX}/${CATKIN_GLOBAL_INCLUDE_DESTINATION}/iri_asterx1_gps)
-IF(asterx1_ros_wrapper_FOUND)
-    ADD_DEFINITIONS(-D_HAVE_GPS)
-ENDIF(asterx1_ros_wrapper_FOUND)
 
 # ******************************************************************** 
 #           Add topic, service and action definition here
@@ -112,10 +105,7 @@ message("laser_scan_utils_INCLUDE_DIRS: ${laser_scan_utils_INCLUDE_DIRS}")
 ## Declare a cpp executable
 add_executable(${PROJECT_NAME} src/wolf_alg.cpp src/wolf_alg_node.cpp)
 add_executable(wolf_prunning src/wolf_prunning_test.cpp)
-
-IF(asterx1_ros_wrapper_FOUND)
-    add_executable(wolf_gps_node src/wolf_gps_main.cpp src/wolf_gps_node.cpp)
-ENDIF(asterx1_ros_wrapper_FOUND)
+add_executable(wolf_gps_node src/wolf_gps_main.cpp src/wolf_gps_node.cpp)
 
 # ******************************************************************** 
 #                   Add the libraries
@@ -127,13 +117,9 @@ target_link_libraries(${PROJECT_NAME} ${wolf_LIBRARY})
 target_link_libraries(wolf_prunning ${catkin_LIBRARIES})
 target_link_libraries(wolf_prunning ${CERES_LIBRARIES})
 target_link_libraries(wolf_prunning ${wolf_LIBRARY})
-
-IF(asterx1_ros_wrapper_FOUND)
-    target_link_libraries(wolf_gps_node ${catkin_LIBRARIES})
-    target_link_libraries(wolf_gps_node ${CERES_LIBRARIES})
-    target_link_libraries(wolf_gps_node ${wolf_LIBRARY})
-    #target_link_libraries(wolf_gps_node gpstk)
-ENDIF(asterx1_ros_wrapper_FOUND)
+target_link_libraries(wolf_gps_node ${catkin_LIBRARIES})
+target_link_libraries(wolf_gps_node ${CERES_LIBRARIES})
+target_link_libraries(wolf_gps_node ${wolf_LIBRARY})
 
 # ******************************************************************** 
 #               Add message headers dependencies 
@@ -142,6 +128,7 @@ ENDIF(asterx1_ros_wrapper_FOUND)
 add_dependencies(${PROJECT_NAME} visualization_msgs_generate_messages_cpp)
 add_dependencies(${PROJECT_NAME} nav_msgs_generate_messages_cpp)
 add_dependencies(${PROJECT_NAME} sensor_msgs_generate_messages_cpp)
+add_dependencies(wolf_gps_node iri_common_drivers_msgs_generate_messages_cpp)
 # ******************************************************************** 
 #               Add dynamic reconfigure dependencies 
 # ******************************************************************** 
