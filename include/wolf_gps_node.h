@@ -23,6 +23,11 @@
  *      ROS includes      *
  **************************/
 #include <ros/ros.h>
+#ifdef _HAVE_GPS
+#include "iri_asterx1_gps/GPS_meas.h"
+#include "iri_asterx1_gps/GPS_raw_frames.h"
+#include "iri_asterx1_gps/NavSatFix_ecef.h"
+#endif
 
 /**************************
  *      STD includes      *
@@ -49,10 +54,18 @@ public:
     void createFrame(const TimeStamp& _time_stamp);
     void manageWindow();
 
+#ifdef _HAVE_GPS
+    void obsCallback(const iri_asterx1_gps::GPS_meas::ConstPtr& msg);
+    void navCallback(const iri_asterx1_gps::GPS_raw_frames::ConstPtr& msg);
+#endif
+
 protected:
     void initCeresManager();
 
 protected:
+    /*
+     * WOLF stuff
+     */
     // Parameters, to be optimized
     StateBlock* sensor_p_;          // gps sensor position
     StateBlock* sensor_o_;          // gps sensor orientation
@@ -84,10 +97,14 @@ protected:
     unsigned int trajectory_size_;
     WolfScalar new_frame_elapsed_time_;
 
-
-    // Ceres Manager TODO
     CeresManager* ceres_manager_;
 
+    /*
+     * ROS stuff
+     */
+    // Subscribers
+    ros::Subscriber obs_sub_; // obs (measurements) subscriber
+    ros::Subscriber nav_sub_; // nav subscriber
     // ROS node handle
     ros::NodeHandle nh_;
 

@@ -35,7 +35,7 @@ WolfGPSNode::WolfGPSNode(StateBlock* _sensor_p,
 
     // Add processor to gps sensor
     gps_sensor_ptr_->addProcessor(new ProcessorGPS());
-    std::cout << "WolfGPSNode::WolfGPSNode(...) -- processor added \n";
+    //std::cout << "WolfGPSNode::WolfGPSNode(...) -- processor added \n";
 
     assert( _prior.size() == 7 &&
             _prior_cov.cols() == 7 &&
@@ -43,11 +43,10 @@ WolfGPSNode::WolfGPSNode(StateBlock* _sensor_p,
             "Wrong init_frame state vector or covariance matrix size");
 
     // Initial frame
-    std::cout << " creating first frame\n";
+    //std::cout << " creating first frame\n";
     createFrame(_prior, TimeStamp(0));
     first_window_frame_ = problem_->getTrajectoryPtr()->getFrameListPtr()->begin();
-    std::cout << " first_window_frame_" << std::endl;
-    std::cout << " WolfGPSNode initialized" << std::endl;
+    //std::cout << " first_window_frame_" << std::endl;
 
     // Initialize ceres manager
     initCeresManager();
@@ -55,7 +54,11 @@ WolfGPSNode::WolfGPSNode(StateBlock* _sensor_p,
     // Adding the sensor
     problem_->getHardwarePtr()->addSensor(gps_sensor_ptr_);
 
-
+    // Subscriber
+    #ifdef _HAVE_GPS
+    obs_sub_ = nh_.subscribe("/iri_asterx1_gps/gps_meas", 1000, &WolfGPSNode::obsCallback, this);
+    nav_sub_ = nh_.subscribe("/iri_asterx1_gps/gps_raw_data", 1000, &WolfGPSNode::navCallback, this);
+    #endif
 }
 
 WolfGPSNode::~WolfGPSNode()
@@ -125,6 +128,7 @@ void WolfGPSNode::createFrame(const TimeStamp& _time_stamp)
     //std::cout << "creating new frame from prior..." << std::endl;
     createFrame(Eigen::Vector7s::Zero(), _time_stamp);
 }
+
 void WolfGPSNode::initCeresManager()
 {
     ceres::Solver::Options ceres_options;
@@ -136,5 +140,22 @@ void WolfGPSNode::initCeresManager()
     problem_options.loss_function_ownership = ceres::TAKE_OWNERSHIP;
     problem_options.local_parameterization_ownership = ceres::TAKE_OWNERSHIP;
 
+    ceres_manager_ = new CeresManager(problem_, problem_options);
 
 }
+
+#ifdef _HAVE_GPS
+void WolfGPSNode::obsCallback(const iri_asterx1_gps::GPS_meas::ConstPtr& msg)
+{
+    std::cout << "WolfGPSNode::obsCallback -- TODO\n";
+    //TODO create gps capture
+}
+#endif
+
+#ifdef _HAVE_GPS
+void WolfGPSNode::navCallback(const iri_asterx1_gps::GPS_raw_frames::ConstPtr& msg)
+{
+    std::cout << "WolfGPSNode::navCallback -- TODO\n";
+    //TODO decide where to put all of this stuff
+}
+#endif
