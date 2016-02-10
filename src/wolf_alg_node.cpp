@@ -338,20 +338,27 @@ void WolfAlgNode::mainNodeThread(void)
         new_landmark.ns = "/landmarks";
         new_landmark.id = 2*ii;
 
-        new_landmark.pose.position.x = *(*l_it)->getPPtr()->getPtr();
-        new_landmark.pose.position.y = *((*l_it)->getPPtr()->getPtr()+1);
-        new_landmark.pose.position.z = 1.5;
-        new_landmark.pose.orientation = tf::createQuaternionMsgFromYaw((*l_it)->getOPtr()->getVector()(0));
+
 
 
         if ((*l_it)->getType() == LANDMARK_CORNER)
         {
-            new_landmark.scale.x = 0.5;
-            new_landmark.scale.y = 0.5;
+            new_landmark.pose.position.x = *(*l_it)->getPPtr()->getPtr();
+            new_landmark.pose.position.y = *((*l_it)->getPPtr()->getPtr()+1);
+            new_landmark.pose.position.z = 1.5;
+            new_landmark.pose.orientation = tf::createQuaternionMsgFromYaw((*l_it)->getOPtr()->getVector()(0) + (*l_it)->getDescriptor()(0) / 2);
+
+            new_landmark.scale.x = 0.8;
+            new_landmark.scale.y = 0.8;
             new_landmark.scale.z = 3;
         }
         else if ((*l_it)->getType() == LANDMARK_CONTAINER)
         {
+            new_landmark.pose.position.x = *(*l_it)->getPPtr()->getPtr();
+            new_landmark.pose.position.y = *((*l_it)->getPPtr()->getPtr()+1);
+            new_landmark.pose.position.z = 1.5;
+            new_landmark.pose.orientation = tf::createQuaternionMsgFromYaw((*l_it)->getOPtr()->getVector()(0));
+
             new_landmark.scale.x = (*l_it)->getDescriptor()(1);
             new_landmark.scale.y = (*l_it)->getDescriptor()(0);
             new_landmark.scale.z = 3;
