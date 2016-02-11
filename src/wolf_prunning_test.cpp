@@ -133,9 +133,12 @@ class WolfPrunning
                         Sigma_33, Sigma_34,
                         Sigma_44, Sigma_z;
         std::vector<Eigen::MatrixXs> jacobians;
+        double ig_threshold;
+        unsigned int N_removable_nodes;
 
         // fitting
         TrajectoryICP* trajectory_icp;
+        double fitting_error;
 
         // Ceres wrapper
         ceres::Solver::Summary summary_full, summary_prun;
@@ -636,9 +639,9 @@ class WolfPrunning
             }
         }
 
-        void pruneAndSolve(const double& ig_threshold, visualization_msgs::Marker& prior_solution_marker, visualization_msgs::Marker& prunned_solution_marker, visualization_msgs::Marker& full_solution_marker, visualization_msgs::Marker& prunned_constraints_marker, visualization_msgs::Marker& full_constraints_marker)
+        void pruneAndSolve(const double& _ig_threshold, visualization_msgs::Marker& prior_solution_marker, visualization_msgs::Marker& prunned_solution_marker, visualization_msgs::Marker& full_solution_marker, visualization_msgs::Marker& prunned_constraints_marker, visualization_msgs::Marker& full_constraints_marker)
         {
-            std::cout << "---------------------- PRUNNING ig_threshold = " << ig_threshold << std::endl;
+            ig_threshold = _ig_threshold;
 
             // RESET CONSTRAINTS (ACTIVE ALL)
             for (auto c_it : ordered_ctr_ptr)
@@ -667,10 +670,31 @@ class WolfPrunning
                 else if (isRemovable(*c_it))
                     (*c_it)->setStatus(CTR_INACTIVE);
 
+            ceres_manager_prun->update();
             t_prunning = ((double) clock() - t1) / CLOCKS_PER_SEC;
 
             // CHECKING INTEGRITY
             checkIntegrity();
+            N_removable_nodes = 0;
+            std::list<ConstraintBase*> connected_constraints_list;
+            for (auto fr_it : *(wolf_problem_prun->getTrajectoryPtr()->getFrameListPtr()) )
+            {
+                unsigned int n_constraints = 0;
+                connected_constraints_list = (*fr_it->getConstraintToListPtr());
+                fr_it->getConstraintList(connected_constraints_list);
+
+                for (auto c_it : connected_constraints_list)
+                {
+                    if (c_it->getCategory() != CTR_ABSOLUTE)
+                    {
+                        n_constraints++;
+                        if (n_constraints > 2)
+                            break;
+                    }
+                }
+                if (n_constraints == 2)
+                    N_removable_nodes++;
+            }
 
             // SOLVING PROBLEMS
             t1 = clock();
@@ -678,17 +702,12 @@ class WolfPrunning
             t_solve_full = ((double) clock() - t1) / CLOCKS_PER_SEC;
             //std::cout << summary_full.BriefReport() << std::endl;
             t1 = clock();
-            ceres_manager_prun->update();
             summary_prun = ceres_manager_prun->solve(ceres_options);
             t_solve_prun = ((double) clock() - t1) / CLOCKS_PER_SEC;
             //std::cout << summary_prun.BriefReport() << std::endl;
-            std::cout << "full constraints:            " << summary_full.num_residual_blocks << std::endl;
-            std::cout << "prunned constraints:         " << summary_prun.num_residual_blocks << std::endl;
-
 
             // FITTING
-            double error = trajectory_icp->fit();
-            std::cout << "error of prunned:            " << error << std::endl;
+            fitting_error = trajectory_icp->fit();
 
             // PLOTING RESULTS
             wolfToFramesMarker(prunned_solution_marker, wolf_problem_prun);
@@ -699,6 +718,15 @@ class WolfPrunning
 
         void printTimes()
         {
+            std::cout << std::endl << "----------- PRUNNING ig_th = " << ig_threshold << std::endl;
+            std::cout << "Total constraints:      " << summary_full.num_residual_blocks << std::endl;
+            std::cout << "Remaining constraints:  " << summary_prun.num_residual_blocks << std::endl;
+            std::cout << "Total nodes:            " << summary_full.num_parameter_blocks << std::endl;
+            std::cout << "Remaining nodes:        " << summary_prun.num_parameter_blocks << std::endl;
+            std::cout << "2-constrained nodes:    " << N_removable_nodes << std::endl;
+            std::cout << "Error of prunned:       " << fitting_error << std::endl;
+
+            std::cout << std::endl << "COMPUTATIONAL COSTS:" << std::endl;
             std::cout << "covariance computation:      " << t_sigma_ceres << "s" << std::endl;
             std::cout << "IG computation and ordering: " << t_ig << "s" << std::endl;
             std::cout << "prunning computation:        " << t_prunning << "s" << std::endl;
