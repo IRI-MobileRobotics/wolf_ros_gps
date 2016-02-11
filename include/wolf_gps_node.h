@@ -31,6 +31,12 @@
 #include <ros/ros.h>
 
 #include "iri_common_drivers_msgs/SatellitePseudorangeArray.h"
+#include "iri_asterx1_gps/NavSatFix_ecef.h"
+
+/*
+ * WARNING: now requires iri_asterx1_gps package!!
+ * is in the metapackage iri_common_driver
+ */
 
 /**************************
  *      STD includes      *
@@ -66,7 +72,7 @@ protected:
 
 protected:
     //Debug stuff
-    bool ceresVerbose = true;
+    bool ceresVerbose = false;
     /*
      * WOLF stuff
      */
@@ -107,6 +113,8 @@ protected:
      */
     // Subscribers
     ros::Subscriber obs_sub_; // obs (measurements) subscriber
+    // Publishers
+    ros::Publisher wolf_fix_pub_;
     // ROS node handle
     ros::NodeHandle nh_;
 

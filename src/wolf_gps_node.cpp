@@ -56,6 +56,8 @@ WolfGPSNode::WolfGPSNode(StateBlock* _sensor_p,
 
     // Subscriber
     obs_sub_ = nh_.subscribe("/sat_pseudoranges", 1000, &WolfGPSNode::obsCallback, this);
+    // Publisher
+    wolf_fix_pub_ = nh_.advertise<iri_asterx1_gps::NavSatFix_ecef>("/wolf_fix", 5000);
 
 }
 
@@ -201,6 +203,28 @@ void WolfGPSNode::obsCallback(const iri_common_drivers_msgs::SatellitePseudorang
     summary = ceres_manager_->solve(ceres_options_);
     if(ceresVerbose)
         std::cout << summary.FullReport() << std::endl;
+
+    std::cout << std::setprecision(12);
+    std::cout << "\n~~~~ RESULTS ~~~~\n";
+    //std::cout << "Vehicle pose " << wolf_manager_->getVehiclePose().transpose() << std::endl;
+    //std::cout << "getInitVehicleP " << gps_sensor_ptr_->getInitVehiclePPtr()->getVector().transpose() << std::endl;
+
+    std::cout << "|\tgetPPtr " << gps_sensor_ptr_->getPPtr()->getVector().transpose() << std::endl;// position of the vehicle's frame with respect to the initial pos frame
+    std::cout << "|\tgetOPtr " << gps_sensor_ptr_->getOPtr()->getVector().transpose() << std::endl;// orientation of the vehicle's frame
+    std::cout << "|\tgetIntrinsicPtr " << gps_sensor_ptr_->getIntrinsicPtr()->getVector().transpose() << std::endl;//intrinsic parameter  = receiver time bias
+    std::cout << "|\tgetInitVehiclePPtr " << gps_sensor_ptr_->getInitVehiclePPtr()->getVector().transpose() << std::endl;// initial vehicle position (ecef)
+    std::cout << "|\tgetInitVehicleOPtr " << gps_sensor_ptr_->getInitVehicleOPtr()->getVector().transpose() << std::endl;// initial vehicle orientation (ecef)
+    //                        getSensorPPtr(), // position of the sensor (gps antenna) with respect to the vehicle frame
+    //                        orientation of antenna is not needed, because omnidirectional
+    std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n";
+
+
+    // Publishing results
+    iri_asterx1_gps::NavSatFix_ecef wolf_fix;
+    wolf_fix.x = gps_sensor_ptr_->getPPtr()->getVector()[0];
+    wolf_fix.y = gps_sensor_ptr_->getPPtr()->getVector()[1];
+    wolf_fix.z = gps_sensor_ptr_->getPPtr()->getVector()[2];
+    wolf_fix_pub_.publish(wolf_fix);
 
 }
 
