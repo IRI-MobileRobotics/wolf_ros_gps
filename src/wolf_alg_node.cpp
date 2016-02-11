@@ -12,6 +12,7 @@ WolfAlgNode::WolfAlgNode(void) :
     public_node_handle_.param<bool>("apply_loss_function", apply_loss_function_, false);
     public_node_handle_.param<int>("n_lasers", n_lasers_, 6);
     public_node_handle_.param<int>("window_length", window_length_, 35);
+    public_node_handle_.param<int>("max_iterations", max_iterations_, 1);
     public_node_handle_.param<double>("odometry_translational_std", odom_std[0], 0.2);
     public_node_handle_.param<double>("odometry_rotational_std", odom_std[1], 0.2);
     public_node_handle_.param<std::string>("base_frame_name", base_frame_name_, "agv_base_link");
@@ -177,6 +178,7 @@ WolfAlgNode::WolfAlgNode(void) :
     // init ceres
     ceres_options_.minimizer_type = ceres::LINE_SEARCH;//ceres::TRUST_REGION;
     ceres_options_.max_line_search_step_contraction = 1e-3;
+    ceres_options_.max_num_iterations = max_iterations_;
     problem_options_.cost_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
     problem_options_.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
     problem_options_.local_parameterization_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
@@ -213,9 +215,9 @@ void WolfAlgNode::mainNodeThread(void)
     ceres_manager_->update(use_auto_diff_wrapper_, apply_loss_function_);
     //std::cout << "ceres updated" << std::endl;
     ceres::Solver::Summary summary = ceres_manager_->solve(ceres_options_);
-    std::cout << "------------------------- SOLVED -------------------------" << std::endl;
-    std::cout << (use_auto_diff_wrapper_ ? "AUTO DIFF WRAPPER" : "CERES AUTO DIFF") << std::endl;
-    std::cout << summary.FullReport() << std::endl;
+    //std::cout << "------------------------- SOLVED -------------------------" << std::endl;
+    //std::cout << (use_auto_diff_wrapper_ ? "AUTO DIFF WRAPPER" : "CERES AUTO DIFF") << std::endl;
+    //std::cout << summary.FullReport() << std::endl;
     //std::cout << summary.BriefReport() << std::endl;
     ceres_manager_->computeCovariances();
     //std::cout << "covariances computed" << std::endl;
@@ -339,29 +341,30 @@ void WolfAlgNode::mainNodeThread(void)
         new_landmark.id = 2*ii;
 
 
-
-
         if ((*l_it)->getType() == LANDMARK_CORNER)
         {
-            new_landmark.pose.position.x = *(*l_it)->getPPtr()->getPtr();
-            new_landmark.pose.position.y = *((*l_it)->getPPtr()->getPtr()+1);
-            new_landmark.pose.position.z = 1.5;
-            new_landmark.pose.orientation = tf::createQuaternionMsgFromYaw((*l_it)->getOPtr()->getVector()(0) + (*l_it)->getDescriptor()(0) / 2);
-
-            new_landmark.scale.x = 0.8;
-            new_landmark.scale.y = 0.8;
+            new_landmark.scale.x = 1.5;
+            new_landmark.scale.y = 0.2;
             new_landmark.scale.z = 3;
+
+            new_landmark.pose.position.x = *(*l_it)->getPPtr()->getPtr() + new_landmark.scale.x / 2 * cos((*l_it)->getOPtr()->getVector()(0));
+            new_landmark.pose.position.y = *((*l_it)->getPPtr()->getPtr()+1) + new_landmark.scale.x / 2 * sin((*l_it)->getOPtr()->getVector()(0));
+            new_landmark.pose.position.z = new_landmark.scale.z / 2;
+            new_landmark.pose.orientation = tf::createQuaternionMsgFromYaw((*l_it)->getOPtr()->getVector()(0));
+
+
         }
         else if ((*l_it)->getType() == LANDMARK_CONTAINER)
         {
-            new_landmark.pose.position.x = *(*l_it)->getPPtr()->getPtr();
-            new_landmark.pose.position.y = *((*l_it)->getPPtr()->getPtr()+1);
-            new_landmark.pose.position.z = 1.5;
-            new_landmark.pose.orientation = tf::createQuaternionMsgFromYaw((*l_it)->getOPtr()->getVector()(0));
-
             new_landmark.scale.x = (*l_it)->getDescriptor()(1);
             new_landmark.scale.y = (*l_it)->getDescriptor()(0);
             new_landmark.scale.z = 3;
+
+            new_landmark.pose.position.x = *(*l_it)->getPPtr()->getPtr();
+            new_landmark.pose.position.y = *((*l_it)->getPPtr()->getPtr()+1);
+            new_landmark.pose.position.z = new_landmark.scale.z / 2;
+            new_landmark.pose.orientation = tf::createQuaternionMsgFromYaw((*l_it)->getOPtr()->getVector()(0));
+
         }
 
         corners_MarkerArray_msg_.markers.push_back(new_landmark);

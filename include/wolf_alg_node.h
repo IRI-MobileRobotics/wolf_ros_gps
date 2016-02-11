@@ -59,7 +59,7 @@ class WolfAlgNode : public algorithm_base::IriBaseAlgorithm<WolfAlgorithm>
 {
   private:
     bool draw_lines_, use_auto_diff_wrapper_, apply_loss_function_;
-    int window_length_, n_lasers_;
+    int window_length_, n_lasers_, max_iterations_;
     double new_frame_elapsed_time_;
     
     //ceres
