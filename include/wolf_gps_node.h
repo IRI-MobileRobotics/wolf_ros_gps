@@ -13,11 +13,17 @@
 #include "wolf/sensor_gps.h"
 #include "wolf/wolf.h"
 #include "wolf/wolf_problem.h"
+#include "wolf/capture_motion.h"
 
 /**************************
  *     CERES includes     *
  **************************/
 #include "wolf/ceres_wrapper/ceres_manager.h"
+
+/**************************
+ *      raw_gps_utils     *
+ **************************/
+#include "raw_gps_utils/satellites_obs.h"
 
 /**************************
  *      ROS includes      *
@@ -55,8 +61,12 @@ public:
 
 protected:
     void initCeresManager();
+    void updateWolfProblem();
+    bool checkNewFrame(CaptureBase* new_capture);
 
 protected:
+    //Debug stuff
+    bool ceresVerbose = true;
     /*
      * WOLF stuff
      */
@@ -77,7 +87,6 @@ protected:
     //pointer to a sensor providing predictions
     SensorBase* sensor_prior_;
 
-    //TODO del prossimo blocco, vedi cosa serve veramente
     //auxiliar/temporary iterators, frames and captures
     FrameBaseIter first_window_frame_;
     FrameBase* current_frame_;
@@ -86,12 +95,12 @@ protected:
     CaptureMotion* second_last_capture_relative_;
     std::queue<CaptureBase*> new_captures_;
 
-    //TODO del prossimo blocco, vedi cosa serve veramente
     //Manager parameters
     unsigned int trajectory_size_;
     WolfScalar new_frame_elapsed_time_;
 
     CeresManager* ceres_manager_;
+    ceres::Solver::Options ceres_options_;
 
     /*
      * ROS stuff
