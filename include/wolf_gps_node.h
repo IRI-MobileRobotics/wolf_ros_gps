@@ -11,6 +11,7 @@
  **************************/
 #include "wolf/processor_gps.h"
 #include "wolf/sensor_gps.h"
+#include "wolf/sensor_odom_2D.h"
 #include "wolf/wolf.h"
 #include "wolf/wolf_problem.h"
 #include "wolf/capture_motion.h"
@@ -32,6 +33,7 @@
 
 #include "iri_common_drivers_msgs/SatellitePseudorangeArray.h"
 #include "iri_asterx1_gps/NavSatFix_ecef.h"
+#include <nav_msgs/Odometry.h>
 
 /*
  * WARNING: now requires iri_asterx1_gps package!!
@@ -52,6 +54,7 @@ public:
                 StateBlock* _sensor_bias,
                 StateBlock* _vehicle_init_p,
                 StateBlock* _vehicle_init_o,
+                const FrameStructure _frame_structure,
                 SensorBase* _sensor_prior_ptr,
                 const Eigen::VectorXs& _prior,
                 const Eigen::MatrixXs& _prior_cov,
@@ -85,6 +88,8 @@ protected:
 
     // GPS sensor
     SensorGPS* gps_sensor_ptr_;
+    // Odometry sensor
+    SensorOdom2D* odom_sensor_ptr_;
 
     // Wolf Problem
     WolfProblem* problem_;
@@ -105,8 +110,10 @@ protected:
     unsigned int trajectory_size_;
     WolfScalar new_frame_elapsed_time_;
 
-    CeresManager* ceres_manager_;
+    // Ceres
     ceres::Solver::Options ceres_options_;
+    ceres::Problem::Options problem_options_;
+    CeresManager* ceres_manager_;
 
     /*
      * ROS stuff
@@ -117,6 +124,11 @@ protected:
     ros::Publisher wolf_fix_pub_;
     // ROS node handle
     ros::NodeHandle nh_;
+
+    //Odometry callback
+    ros::Time last_odom_stamp_;
+    ros::Subscriber odometry_subscriber_;
+    void odometry_callback(const nav_msgs::Odometry::ConstPtr& msg);
 
 };
 

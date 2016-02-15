@@ -31,6 +31,7 @@ int main(int argc, char **argv)
                        sensor_bias,
                        vehicle_init_p,
                        vehicle_init_o,
+                       PO_3D,
                        nullptr,                           //_sensor_prior_ptr
                        Eigen::Vector7s::Zero(),           //prior
                        Eigen::Matrix7s::Identity()*0.01,  //prior cov
