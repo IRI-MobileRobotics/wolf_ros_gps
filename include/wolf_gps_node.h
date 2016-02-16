@@ -32,13 +32,8 @@
 #include <ros/ros.h>
 
 #include "iri_common_drivers_msgs/SatellitePseudorangeArray.h"
-#include "iri_asterx1_gps/NavSatFix_ecef.h"
+#include "iri_common_drivers_msgs/NavSatFix_ecef.h"
 #include <nav_msgs/Odometry.h>
-
-/*
- * WARNING: now requires iri_asterx1_gps package!!
- * is in the metapackage iri_common_driver
- */
 
 /**************************
  *      STD includes      *

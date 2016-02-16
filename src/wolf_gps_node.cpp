@@ -73,7 +73,7 @@ WolfGPSNode::WolfGPSNode(StateBlock* _sensor_p,
     // Subscriber
     obs_sub_ = nh_.subscribe("/sat_pseudoranges", 1000, &WolfGPSNode::obsCallback, this);
     // Publisher
-    wolf_fix_pub_ = nh_.advertise<iri_asterx1_gps::NavSatFix_ecef>("/wolf_fix", 5000);
+    wolf_fix_pub_ = nh_.advertise<iri_common_drivers_msgs::NavSatFix_ecef>("/wolf_fix", 5000);
 
 }
 
@@ -253,7 +253,7 @@ void WolfGPSNode::obsCallback(const iri_common_drivers_msgs::SatellitePseudorang
 
 
     // Publishing results
-    iri_asterx1_gps::NavSatFix_ecef wolf_fix;
+    iri_common_drivers_msgs::NavSatFix_ecef wolf_fix;
     wolf_fix.x = gps_sensor_ptr_->getPPtr()->getVector()[0];
     wolf_fix.y = gps_sensor_ptr_->getPPtr()->getVector()[1];
     wolf_fix.z = gps_sensor_ptr_->getPPtr()->getVector()[2];

@@ -142,7 +142,6 @@ add_dependencies(${PROJECT_NAME} nav_msgs_generate_messages_cpp)
 add_dependencies(${PROJECT_NAME} sensor_msgs_generate_messages_cpp)
 IF(raw_gps_utils_FOUND)
         add_dependencies(wolf_gps_node iri_common_drivers_msgs_generate_messages_cpp)
-        add_dependencies(wolf_gps_node iri_asterx1_gps_generate_messages_cpp)
 ENDIF(raw_gps_utils_FOUND)
 # ******************************************************************** 
 #               Add dynamic reconfigure dependencies 
