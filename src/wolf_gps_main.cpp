@@ -21,16 +21,14 @@ int main(int argc, char **argv)
     sensor_o->fix(); //orientation is fixed, because antenna omnidirectional, so is not going to be optimized
     StateBlock* sensor_bias = new StateBlock(Eigen::Vector1s::Zero());    //gps sensor bias
     // TODO Should this 2 supplementary blocks go in the sensor?
-    StateBlock* vehicle_init_p = new StateBlock(Eigen::Vector3s::Zero());    //vehicle init position
-    StateBlock* vehicle_init_o = new StateBlock(Eigen::Vector4s::Zero(), ST_QUATERNION);// vehicle init orientation
+    StateBlock* vehicle_init_p = new StateBlock(Eigen::Vector3s::Zero());    //vehicle initial position
+    StateBlock* vehicle_init_o = new StateBlock(Eigen::Vector4s::Zero(), ST_QUATERNION);// vehicle initial orientation
+
+    SensorGPS* gps_sensor_ptr = new SensorGPS(sensor_p, sensor_o, sensor_bias, vehicle_init_p, vehicle_init_o);
 
 
-    // Trilateration node
-    WolfGPSNode wgNode(sensor_p,
-                       sensor_o,
-                       sensor_bias,
-                       vehicle_init_p,
-                       vehicle_init_o,
+            // Trilateration node
+    WolfGPSNode wgNode(gps_sensor_ptr,
                        PO_3D,
                        nullptr,                           //_sensor_prior_ptr
                        Eigen::Vector7s::Zero(),           //prior

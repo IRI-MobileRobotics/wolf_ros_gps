@@ -5,11 +5,7 @@
 #include "wolf_gps_node.h"
 
 
-WolfGPSNode::WolfGPSNode(StateBlock* _sensor_p,
-                         StateBlock* _sensor_o,
-                         StateBlock* _sensor_bias,
-                         StateBlock* _vehicle_init_p,
-                         StateBlock* _vehicle_init_o,
+WolfGPSNode::WolfGPSNode(SensorGPS* _gps_sensor_ptr,
                          const FrameStructure _frame_structure,
                          SensorBase* _sensor_prior_ptr,
                          const Eigen::VectorXs& _prior,
@@ -17,12 +13,7 @@ WolfGPSNode::WolfGPSNode(StateBlock* _sensor_p,
                          const unsigned int& _trajectory_size,
                          const WolfScalar& _new_frame_elapsed_time) :
         nh_(ros::this_node::getName()),
-        sensor_p_(_sensor_p),
-        sensor_o_(_sensor_o),
-        sensor_bias_(_sensor_bias),
-        vehicle_init_p_(_vehicle_init_p),
-        vehicle_init_o_(_vehicle_init_o),
-        gps_sensor_ptr_(new SensorGPS(sensor_p_, sensor_o_, sensor_bias_, vehicle_init_p_, vehicle_init_o_)),
+        gps_sensor_ptr_(_gps_sensor_ptr),
         problem_(new WolfProblem()),
         frame_structure_(_frame_structure),
         sensor_prior_(_sensor_prior_ptr),
@@ -189,6 +180,14 @@ void WolfGPSNode::initCeresManager()
  */
 void WolfGPSNode::obsCallback(const iri_common_drivers_msgs::SatellitePseudorangeArray::ConstPtr& msg)
 {
+    //downsampling of the observations received
+    if(msg->time_ros < time_last_obs_ + down_sampling_interval_)
+    {
+        //std::cout << "discarding obs\n";
+        return;
+    }
+    time_last_obs_ = msg->time_ros;
+
     std::cout << "WolfGPSNode::obsCallback\n";
 
     //std::cout << "------MSG: found " << msg->measurements.size() << " sats\n";

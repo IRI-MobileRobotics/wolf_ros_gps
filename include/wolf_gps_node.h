@@ -44,11 +44,7 @@
 class WolfGPSNode
 {
 public:
-    WolfGPSNode(StateBlock* _sensor_p,
-                StateBlock* _sensor_o,
-                StateBlock* _sensor_bias,
-                StateBlock* _vehicle_init_p,
-                StateBlock* _vehicle_init_o,
+    WolfGPSNode(SensorGPS* _gps_sensor_ptr,
                 const FrameStructure _frame_structure,
                 SensorBase* _sensor_prior_ptr,
                 const Eigen::VectorXs& _prior,
@@ -71,15 +67,12 @@ protected:
 protected:
     //Debug stuff
     bool ceresVerbose = false;
+    ros::Time time_last_obs_;
+    ros::Duration down_sampling_interval_ = ros::Duration(0, 5e8);
+
     /*
      * WOLF stuff
      */
-    // Parameters, to be optimized
-    StateBlock* sensor_p_;          // gps sensor position
-    StateBlock* sensor_o_;          // gps sensor orientation
-    StateBlock* sensor_bias_;       // gps sensor bias
-    StateBlock* vehicle_init_p_;    // vehicle init position
-    StateBlock* vehicle_init_o_;    // vehicle init orientation
 
     // GPS sensor
     SensorGPS* gps_sensor_ptr_;
