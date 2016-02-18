@@ -173,10 +173,10 @@ void WolfGPSNode::initCeresManager()
 }
 
 /*
- * TODO da qualche parte devo anche creare il frame
- *
- * crealo ogni volta che arriva gps-data,
- * e integra l'odometry fino a quel punto
+ * TODO:
+ * when a new observation arrive, save it and activate a flag "new_data"
+ * and move the elaboration outside the callback:
+ * something is monitoring the flag and when is on it start working
  */
 void WolfGPSNode::obsCallback(const iri_common_drivers_msgs::SatellitePseudorangeArray::ConstPtr& msg)
 {

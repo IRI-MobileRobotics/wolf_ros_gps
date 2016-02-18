@@ -81,7 +81,7 @@ protected:
 
     // Wolf Problem
     WolfProblem* problem_;
-    FrameStructure frame_structure_; // always = PO_3D TODO maybe is not needed
+    FrameStructure frame_structure_;
 
     //pointer to a sensor providing predictions
     SensorBase* sensor_prior_;
