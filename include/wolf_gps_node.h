@@ -49,6 +49,8 @@ public:
     WolfGPSNode();
     virtual ~WolfGPSNode();
 
+    bool hasDataToProcess();
+    void process();
 
 protected:
 
@@ -65,6 +67,8 @@ protected:
     //Odometry callback
     void gpsCallback(const iri_common_drivers_msgs::SatellitePseudorangeArray::ConstPtr& msg);
     void odometryCallback(const nav_msgs::Odometry::ConstPtr& msg);
+    int gps_data_arrived;
+
 
 };
 

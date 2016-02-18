@@ -10,6 +10,8 @@ WolfGPSNode::WolfGPSNode() :
         nh_(ros::this_node::getName())
 {
     std::cout << "WolfGPSNode::WolfGPSNode(...) -- constructor\n";
+    gps_data_arrived = 0;
+    gps_sub_ = nh_.subscribe("/sat_pseudoranges", 1000, &WolfGPSNode::gpsCallback, this);
 
 }
 
@@ -31,5 +33,22 @@ WolfGPSNode::~WolfGPSNode()
  */
 void WolfGPSNode::gpsCallback(const iri_common_drivers_msgs::SatellitePseudorangeArray::ConstPtr& msg)
 {
+    //TODO store data
+    gps_data_arrived++;
+}
+
+
+bool WolfGPSNode::hasDataToProcess()
+{
+    return (gps_data_arrived > 0);
+}
+
+void WolfGPSNode::process()
+{
+    std::cout << "COMPUTING the last " << gps_data_arrived << " GPS obs" << std::endl;
+    gps_data_arrived = 0;
+
+
+
 
 }

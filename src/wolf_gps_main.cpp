@@ -37,9 +37,27 @@ int main(int argc, char **argv)
 
 
     // Trilateration node
-    WolfGPSNode wgNode();
+    WolfGPSNode* wgps = new WolfGPSNode();
 
-    ros::spin();
+
+    ros::Rate loopRate(2);// TODO wgps().getRate());
+
+    while(ros::ok())
+    {
+        //execute pending callbacks
+        ros::spinOnce();
+
+        if(wgps->hasDataToProcess())
+        {
+            wgps->process();
+//            wgps.publish();
+        }
+
+        //relax to fit output rate
+        loopRate.sleep();
+
+    }
+
 
     return 0;
 }

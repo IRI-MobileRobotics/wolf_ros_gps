@@ -1,1 +1,6 @@
 .idea/
+*.*~
+include/wolf_gps_node_2.h
+src/wolf_gps_main_2.cpp
+src/wolf_gps_node_2.cpp
+
