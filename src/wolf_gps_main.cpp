@@ -19,7 +19,7 @@ int main(int argc, char **argv)
      */
     StateBlock* sensor_p = new StateBlock(Eigen::Vector3s::Zero()); //gps sensor position
     sensor_p->fix(); // TODO only for now, to simplify things
-    StateBlock* sensor_o = new StateBlock(Eigen::Vector4s::Zero(), ST_QUATERNION);   //gps sensor orientation
+    StateBlock* sensor_o = new StateBlock(Eigen::Vector4s::Zero());   //gps sensor orientation
     sensor_o->fix(); //orientation is fixed, because antenna omnidirectional, so is not going to be optimized
     StateBlock* sensor_bias = new StateBlock(Eigen::Vector1s::Zero());    //gps sensor bias
     StateBlock* init_vehicle_p = new StateBlock(Eigen::Vector3s(4789000, 177000, 4195000));    //vehicle initial position
@@ -37,7 +37,7 @@ int main(int argc, char **argv)
     /*
      * Init prior
      */
-    Eigen::Vector3s prior = Eigen::Vector3s(10, 10, 90*M_PI/180);
+    Eigen::Vector3s prior = Eigen::Vector3s(0, 0, 0); // TODO ecef init pose
 
     /*
      * params for wolf manager etc
@@ -48,11 +48,11 @@ int main(int argc, char **argv)
     /*
      * Wolf ROS node
      */
-    WolfGPSNode* wgps = new WolfGPSNode(gps_sensor_ptr, PO_2D, odom_sensor_ptr_, Eigen::Vector3s::Zero(), Eigen::Matrix3s::Identity()*0.01, window_length_, new_frame_elapsed_time_);
+    WolfGPSNode* wgps = new WolfGPSNode(gps_sensor_ptr, odom_sensor_ptr_, prior, window_length_, new_frame_elapsed_time_);
 
 
 
-    ros::Rate loopRate(2);// TODO wgps().getRate());
+    ros::Rate loopRate(1);// TODO wgps().getRate());
 
     while(ros::ok())
     {

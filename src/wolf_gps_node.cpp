@@ -7,10 +7,8 @@
 
 
 WolfGPSNode::WolfGPSNode(SensorGPS* _gps_sensor_ptr,
-                         const FrameStructure _frame_structure,
                          SensorBase* _sensor_prior_ptr,
                          const Eigen::VectorXs& _prior,
-                         const Eigen::MatrixXs& _prior_cov,
                          const unsigned int& _trajectory_size,
                          const WolfScalar& _new_frame_elapsed_time) :
         nh_(ros::this_node::getName()),
@@ -19,7 +17,6 @@ WolfGPSNode::WolfGPSNode(SensorGPS* _gps_sensor_ptr,
         gps_sensor_ptr_(_gps_sensor_ptr),
 
         problem_(new WolfProblem()),
-        frame_structure_(_frame_structure),
         sensor_prior_(_sensor_prior_ptr),
         current_frame_(nullptr),
         last_key_frame_(nullptr),
@@ -30,16 +27,7 @@ WolfGPSNode::WolfGPSNode(SensorGPS* _gps_sensor_ptr,
     std::cout << "WolfGPSNode::WolfGPSNode(...) -- constructor\n";
 
     //******** inizio costrutt wolf manager
-    if (_frame_structure == PO_2D)
-        assert( _prior.size() == 3 &&
-                _prior_cov.cols() == 3 &&
-                _prior_cov.rows() == 3 &&
-                "Wrong init_frame state vector or covariance matrix size");
-    else
-        assert( _prior.size() == 7 &&
-                _prior_cov.cols() == 7 &&
-                _prior_cov.rows() == 7 &&
-                "Wrong init_frame state vector or covariance matrix size");
+    assert( _prior.size() == 3 && "Wrong init_frame state vector or covariance matrix size");
 
 
     // Initial frame
@@ -47,13 +35,6 @@ WolfGPSNode::WolfGPSNode(SensorGPS* _gps_sensor_ptr,
     first_window_frame_ = problem_->getTrajectoryPtr()->getFrameListPtr()->begin();
     //std::cout << " first_window_frame_" << std::endl;
 
-    // Initial covariance
-    SensorBase* prior_sensor = new SensorBase(ABSOLUTE_POSE, nullptr, nullptr, nullptr, 0);
-    problem_->getHardwarePtr()->addSensor(prior_sensor);
-    CaptureFix* initial_covariance = new CaptureFix(TimeStamp(0), prior_sensor, _prior, _prior_cov);
-    //std::cout << " initial_covariance" << std::endl;
-    current_frame_->addCapture(initial_covariance);
-    //std::cout << " addCapture" << std::endl;
 
     // Current robot frame
     createFrame(_prior, TimeStamp(0));
@@ -71,10 +52,10 @@ WolfGPSNode::WolfGPSNode(SensorGPS* _gps_sensor_ptr,
     odom_frame_name_ = "odom";
 
     // Odometry sensor
-    addSensor(sensor_prior_);
+    problem_->getHardwarePtr()->addSensor(sensor_prior_);
 
     // GPS sensor
-    addSensor(gps_sensor_ptr_);
+    problem_->getHardwarePtr()->addSensor(gps_sensor_ptr_);
     gps_sensor_ptr_->addProcessor(new ProcessorGPS());
 
     // [init publishers]
@@ -88,7 +69,7 @@ WolfGPSNode::WolfGPSNode(SensorGPS* _gps_sensor_ptr,
     gps_sub_ = nh_.subscribe("/sat_pseudoranges", 1000, &WolfGPSNode::gpsCallback, this);
     gps_data_arrived_ = 0;
 
-    max_iterations_ = 1;
+    max_iterations_ = 100;
 
     use_auto_diff_wrapper_ = false;
     apply_loss_function_ = false;
@@ -169,17 +150,15 @@ void WolfGPSNode::process()
     gps_data_arrived_ = 0;
 
     //solve problem
-    //std::cout << "wolf updating..." << std::endl;
-    update();
     //std::cout << "wolf updated" << std::endl;
     ceres_manager_->update(use_auto_diff_wrapper_, apply_loss_function_);
     //std::cout << "ceres updated" << std::endl;
     ceres::Solver::Summary summary = ceres_manager_->solve(ceres_options_);
     //std::cout << "------------------------- SOLVED -------------------------" << std::endl;
     //std::cout << (use_auto_diff_wrapper_ ? "AUTO DIFF WRAPPER" : "CERES AUTO DIFF") << std::endl;
-    //std::cout << summary.FullReport() << std::endl;
+    std::cout << summary.FullReport() << std::endl;
     //std::cout << summary.BriefReport() << std::endl;
-    ceres_manager_->computeCovariances();
+    //ceres_manager_->computeCovariances();
     //std::cout << "covariances computed" << std::endl;
 
     // Sets localization timestamp & Gets wolf localization estimate
@@ -256,61 +235,6 @@ Eigen::VectorXs WolfGPSNode::getVehiclePose(const TimeStamp& _now)
 
 
 
-void WolfGPSNode::update()
-{
-    //std::cout << "updating..." << std::endl;
-    while (!new_captures_.empty())
-    {
-        // EXTRACT NEW CAPTURE
-        CaptureBase* new_capture = new_captures_.front();
-        new_captures_.pop();
-
-        // OVERWRITE CURRENT STAMP
-        current_frame_->setTimeStamp(new_capture->getTimeStamp());
-
-        // INITIALIZE FIRST FRAME STAMP
-        if (last_key_frame_->getTimeStamp().get() == 0)
-            last_key_frame_->setTimeStamp(new_capture->getTimeStamp());
-
-        // NEW KEY FRAME ?
-        if (checkNewFrame(new_capture))
-            createFrame(new_capture->getTimeStamp());
-
-        // ODOMETRY SENSOR
-        if (new_capture->getSensorPtr() == sensor_prior_)
-        {
-            //std::cout << "adding odometry capture..." << new_capture->nodeId() << std::endl;
-
-            // ADD/INTEGRATE NEW ODOMETRY TO THE LAST FRAME
-            last_capture_relative_->integrateCapture((CaptureMotion*) (new_capture));
-            current_frame_->setState(last_capture_relative_->computeFramePose(new_capture->getTimeStamp()));
-            current_frame_->setTimeStamp(new_capture->getTimeStamp());
-            delete new_capture;
-        }
-        else
-        {
-            //std::cout << "adding not odometry capture..." << new_capture->nodeId() << std::endl;
-
-            // ADD CAPTURE TO THE CURRENT FRAME (or substitute the same sensor previous capture)
-            //std::cout << "searching repeated capture..." << new_capture->nodeId() << std::endl;
-            CaptureBaseIter repeated_capture_it = current_frame_->hasCaptureOf(new_capture->getSensorPtr());
-
-            if (repeated_capture_it != current_frame_->getCaptureListPtr()->end()) // repeated capture
-            {
-                //std::cout << "repeated capture, keeping new capture" << new_capture->nodeId() << std::endl;
-                current_frame_->removeCapture(repeated_capture_it);
-                current_frame_->addCapture(new_capture);
-            }
-            else
-            {
-                //std::cout << "not repeated, adding capture..." << new_capture->nodeId() << std::endl;
-                current_frame_->addCapture(new_capture);
-            }
-        }
-    }
-    //std::cout << "updated" << std::endl;
-}
-
 bool WolfGPSNode::checkNewFrame(CaptureBase* new_capture)
 {
     //std::cout << "checking if new frame..." << std::endl;
@@ -328,32 +252,10 @@ void WolfGPSNode::createFrame(const Eigen::VectorXs& _frame_state, const TimeSta
     last_key_frame_ = current_frame_;
 
     // ---------------------- CREATE NEW FRAME ---------------------
-    // Create frame
-    switch ( frame_structure_)
-    {
-        case PO_2D:
-        {
-            assert( _frame_state.size() == 3 && "Wrong init_frame state vector or covariance matrix size");
+    problem_->getTrajectoryPtr()->addFrame(new FrameBase(_time_stamp,
+                                           new StateBlock(_frame_state.head(2)),
+                                           new StateBlock(_frame_state.tail(1))));
 
-            problem_->getTrajectoryPtr()->addFrame(new FrameBase(_time_stamp,
-                                                                 new StateBlock(_frame_state.head(2)),
-                                                                 new StateBlock(_frame_state.tail(1))));
-            break;
-        }
-        case PO_3D:
-        {
-            assert( _frame_state.size() == 7 && "Wrong init_frame state vector or covariance matrix size");
-
-            problem_->getTrajectoryPtr()->addFrame(new FrameBase(_time_stamp,
-                                                                 new StateBlock(_frame_state.head(3)),
-                                                                 new StateBlock(_frame_state.tail(4),ST_QUATERNION)));
-            break;
-        }
-        default:
-        {
-            assert( "Unknown frame structure");
-        }
-    }
     //std::cout << "frame created" << std::endl;
 
     // Store new current frame
@@ -363,10 +265,11 @@ void WolfGPSNode::createFrame(const Eigen::VectorXs& _frame_state, const TimeSta
     // Zero odometry (to be integrated)
     if (last_key_frame_ != nullptr)
     {
-        CaptureMotion* empty_odom = new CaptureOdom2D(_time_stamp, _time_stamp, sensor_prior_, Eigen::Vector3s::Zero());
-        current_frame_->addCapture(empty_odom);
-        empty_odom->process();
-        last_capture_relative_ = empty_odom;
+        //TODO leave commented after adding odometry?
+//        CaptureMotion* empty_odom = new CaptureOdom2D(_time_stamp, _time_stamp, sensor_prior_, Eigen::Vector3s::Zero());
+//        current_frame_->addCapture(empty_odom);
+//        empty_odom->process();
+//        last_capture_relative_ = empty_odom;
     }
     //std::cout << "last_key_frame_" << std::endl;
 
@@ -392,7 +295,7 @@ void WolfGPSNode::createFrame(const Eigen::VectorXs& _frame_state, const TimeSta
 
 void WolfGPSNode::odometryCallback(const nav_msgs::Odometry::ConstPtr& msg)
 {
-    //ROS_INFO("WolfAlgNode::relative_odometry_cal lback: New Message Received");
+    //ROS_INFO("WolfAlgNode::relative_odometry_callback: New Message Received");
     if (last_odom_stamp_ != ros::Time(0))
     {
 
@@ -410,16 +313,62 @@ void WolfGPSNode::odometryCallback(const nav_msgs::Odometry::ConstPtr& msg)
 void WolfGPSNode::createFrame(const TimeStamp& _time_stamp)
 {
     //std::cout << "creating new frame from prior..." << std::endl;
-    createFrame(last_capture_relative_->computeFramePose(_time_stamp), _time_stamp);
+    if (last_capture_relative_ != nullptr)
+        createFrame(last_capture_relative_->computeFramePose(_time_stamp), _time_stamp);
+    else
+        createFrame(problem_->getTrajectoryPtr()->getLastFramePtr()->getState(), _time_stamp);
 }
 
 
-void WolfGPSNode::addCapture(CaptureBase* _capture)
+void WolfGPSNode::addCapture(CaptureBase* new_capture)
 {
-    new_captures_.push(_capture);
+    //new_captures_.push(_capture);
 //    std::cout << "added new capture: " << _capture->nodeId() << " stamp: ";
 //    _capture->getTimeStamp().print();
 //    std::cout << std::endl;
+
+    // OVERWRITE CURRENT STAMP
+    current_frame_->setTimeStamp(new_capture->getTimeStamp());
+
+    // INITIALIZE FIRST FRAME STAMP
+    if (last_key_frame_->getTimeStamp().get() == 0)
+        last_key_frame_->setTimeStamp(new_capture->getTimeStamp());
+
+    // NEW KEY FRAME ?
+    if (checkNewFrame(new_capture))
+        createFrame(new_capture->getTimeStamp());
+
+    // ODOMETRY SENSOR
+    if (new_capture->getSensorPtr() == sensor_prior_)
+    {
+        //std::cout << "adding odometry capture..." << new_capture->nodeId() << std::endl;
+
+        // ADD/INTEGRATE NEW ODOMETRY TO THE LAST FRAME
+        last_capture_relative_->integrateCapture((CaptureMotion*) (new_capture));
+        current_frame_->setState(last_capture_relative_->computeFramePose(new_capture->getTimeStamp()));
+        current_frame_->setTimeStamp(new_capture->getTimeStamp());
+        delete new_capture;
+    }
+    else
+    {
+        //std::cout << "adding not odometry capture..." << new_capture->nodeId() << std::endl;
+
+        // ADD CAPTURE TO THE CURRENT FRAME (or substitute the same sensor previous capture)
+        //std::cout << "searching repeated capture..." << new_capture->nodeId() << std::endl;
+        CaptureBaseIter repeated_capture_it = current_frame_->hasCaptureOf(new_capture->getSensorPtr());
+
+        if (repeated_capture_it != current_frame_->getCaptureListPtr()->end()) // repeated capture
+        {
+            //std::cout << "repeated capture, keeping new capture" << new_capture->nodeId() << std::endl;
+            current_frame_->removeCapture(repeated_capture_it);
+            current_frame_->addCapture(new_capture);
+        }
+        else
+        {
+            //std::cout << "not repeated, adding capture..." << new_capture->nodeId() << std::endl;
+            current_frame_->addCapture(new_capture);
+        }
+    }
 }
 
 
@@ -436,41 +385,3 @@ void WolfGPSNode::manageWindow()
     }
     //std::cout << "window managed" << std::endl;
 }
-
-void WolfGPSNode::addSensor(SensorBase* _sensor_ptr)
-{
-    std::cout << "adding sensor... to hardware " << problem_->getHardwarePtr()->nodeId() << std::endl;
-    problem_->getHardwarePtr()->addSensor(_sensor_ptr);
-    std::cout << "added!" << std::endl;
-}
-
-///*
-// * TODO qui rispetto al suo codice ho tolto tutta la partedi tf
-// * è solo per visualizzare i risultati o serve anche per creare il problema?
-// */
-//void WolfGPSNode::loadGPSTf()
-//{
-//    std::cout << "loading GPS sensor " << std::endl;
-//
-//    //DEBUG: prints gps sensor pose
-////    std::cout << "GPS sensor " << ": " << gps_frame_name_ << ": " << gps_sensor_p.transpose() << std::endl;
-//
-//
-//    //DEBUG: prints map pose (aka init_vehicle_pose)
-////    std::cout << "init_vechicle_pose " << ": " << map_frame_name_ << ": " << init_vehicle_pose.transpose() << std::endl;
-//
-//
-//
-//    //set wolf states and sensors
-//    gps_sensor_ptr_ = new SensorGPS(sensor_p,
-//                                    sensor_o,
-//                                    new StateBlock(Eigen::Vector1s::Zero()),//sensor_bias,
-//                                    new StateBlock(init_vehicle_pose.head(3)),//init_vehicle_p,
-//                                    new StateBlock(init_vehicle_pose.tail(1)));//init_vehicle_o);
-//    addSensor(gps_sensor_ptr_);
-//    gps_sensor_ptr_->addProcessor(new ProcessorGPS());
-//    gps_tf_loaded_ = true;
-//
-//    std::cout << "GPS antenna initialized" << std::endl;
-//
-//}

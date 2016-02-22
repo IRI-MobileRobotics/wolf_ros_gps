@@ -50,10 +50,8 @@ class WolfGPSNode
 {
 public:
     WolfGPSNode(SensorGPS* _gps_sensor_ptr,
-                const FrameStructure _frame_structure,
                 SensorBase* _sensor_prior_ptr,
                 const Eigen::VectorXs& _prior,
-                const Eigen::MatrixXs& _prior_cov,
                 const unsigned int& _trajectory_size,
                 const WolfScalar& _new_frame_elapsed_time);
     virtual ~WolfGPSNode();
@@ -65,7 +63,7 @@ public:
     void createFrame(const Eigen::VectorXs& _frame_state, const TimeStamp& _time_stamp);
     void createFrame(const TimeStamp& _time_stamp);
     void manageWindow();
-    void addSensor(SensorBase* _sensor_ptr);
+//    void addSensor(SensorBase* _sensor_ptr);
 
 protected:
     //-------------- WOLF manager stuff--------------
@@ -89,7 +87,6 @@ protected:
     WolfScalar new_frame_elapsed_time_;
 
     void addCapture(CaptureBase* _capture);
-    void update();
     bool checkNewFrame(CaptureBase* new_capture);
     Eigen::VectorXs getVehiclePose(const TimeStamp& _now = 0);
 
