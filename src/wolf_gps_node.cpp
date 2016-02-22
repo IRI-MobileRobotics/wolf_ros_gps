@@ -6,7 +6,8 @@
 #include "wolf_gps_node.h"
 
 
-WolfGPSNode::WolfGPSNode(const FrameStructure _frame_structure,
+WolfGPSNode::WolfGPSNode(SensorGPS* _gps_sensor_ptr,
+                         const FrameStructure _frame_structure,
                          SensorBase* _sensor_prior_ptr,
                          const Eigen::VectorXs& _prior,
                          const Eigen::MatrixXs& _prior_cov,
@@ -14,6 +15,8 @@ WolfGPSNode::WolfGPSNode(const FrameStructure _frame_structure,
                          const WolfScalar& _new_frame_elapsed_time) :
         nh_(ros::this_node::getName()),
         last_odom_stamp_(0),
+
+        gps_sensor_ptr_(_gps_sensor_ptr),
 
         problem_(new WolfProblem()),
         frame_structure_(_frame_structure),
@@ -55,7 +58,7 @@ WolfGPSNode::WolfGPSNode(const FrameStructure _frame_structure,
     // Current robot frame
     createFrame(_prior, TimeStamp(0));
 
-    gps_tf_loaded_ = false;
+//    gps_tf_loaded_ = false;
 
     //std::cout << " wolfmanager initialized" << std::endl;
     //************ fine costrutt wolf manager
@@ -70,7 +73,9 @@ WolfGPSNode::WolfGPSNode(const FrameStructure _frame_structure,
     // Odometry sensor
     addSensor(sensor_prior_);
 
-    loadGPSTf();// add gps sensor
+    // GPS sensor
+    addSensor(gps_sensor_ptr_);
+    gps_sensor_ptr_->addProcessor(new ProcessorGPS());
 
     // [init publishers]
     //TODO ask joan: why map2base is between map and odom?
@@ -145,9 +150,10 @@ void WolfGPSNode::gpsCallback(const iri_common_drivers_msgs::SatellitePseudorang
         TimeStamp time_stamp(obs.time_ros_sec_, obs.time_ros_nsec_);
 
 
-        CaptureGPS* cpt_ptr_ = new CaptureGPS(time_stamp, gps_sensor_ptr_, obs);
-        new_captures_.push(cpt_ptr_);
+        addCapture(new CaptureGPS(time_stamp, gps_sensor_ptr_, obs));
 
+//        CaptureGPS* cpt_ptr_ = new CaptureGPS(time_stamp, gps_sensor_ptr_, obs);
+//        new_captures_.push(cpt_ptr_);
     }
 
 }
@@ -186,7 +192,7 @@ void WolfGPSNode::process()
     map2base.setOrigin( tf::Vector3(vehicle_pose(0), vehicle_pose(1), 0) );
     map2base.setRotation( tf::createQuaternionFromYaw(vehicle_pose(2)) );
 
-    //std::cout << "Loc: (" << vehicle_pose(0) << "," << vehicle_pose(1) << "," << vehicle_pose(2) << ")" << std::endl;
+    std::cout << "Loc: (" << vehicle_pose(0) << "," << vehicle_pose(1) << "," << vehicle_pose(2) << ")" << std::endl;
 
     //base2map: invert map2base to get base2map (map wrt base), and stamp it
     tf::Stamped<tf::Pose> base2map(map2base.inverse(), loc_stamp, base_frame_name_);
@@ -216,8 +222,25 @@ void WolfGPSNode::process()
     // [...]
 
 
-
-
+    if(gps_sensor_ptr_!= nullptr)
+    {
+        std::cout << std::setprecision(12);
+        std::cout << "\n~~~~ RESULTS ~~~~\n";
+        std::cout << "|\tinitial P: " << gps_sensor_ptr_->getInitVehiclePPtr()->getVector().transpose() <<
+        std::endl;// initial vehicle position (ecef)
+        std::cout << "|\tinitial O: " << gps_sensor_ptr_->getInitVehicleOPtr()->getVector().transpose() <<
+        std::endl;// initial vehicle orientation (ecef)
+        std::cout << "|\tVehicle Pose: " << getVehiclePose().transpose() <<
+        std::endl;// position of the vehicle's frame with respect to the initial pos frame
+        //    std::cout << "|\tVehicle P (last frame): " << problem_->getLastFramePtr()->getPPtr()->getVector().transpose() << std::endl;// position of the vehicle's frame with respect to the initial pos frame
+        //    std::cout << "|\tVehicle O (last frame): " << problem_->getLastFramePtr()->getOPtr()->getVector().transpose() << std::endl;// position of the vehicle's frame with respect to the initial pos frame
+        std::cout << "|\tsensor P: " << gps_sensor_ptr_->getPPtr()->getVector().transpose() <<
+        std::endl;// position of the sensor with respect to the vehicle's frame
+        //        std::cout << "|\tsensor O (not needed):" << gps_sensor_ptr_->getOPtr()->getVector().transpose() << std::endl;// orientation of antenna is not needed, because omnidirectional
+        std::cout << "|\tbias: " << gps_sensor_ptr_->getIntrinsicPtr()->getVector().transpose() <<
+        std::endl;//intrinsic parameter  = receiver time bias
+        std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n";
+    }
 
 
 }
@@ -372,9 +395,6 @@ void WolfGPSNode::odometryCallback(const nav_msgs::Odometry::ConstPtr& msg)
     //ROS_INFO("WolfAlgNode::relative_odometry_cal lback: New Message Received");
     if (last_odom_stamp_ != ros::Time(0))
     {
-        //use appropiate mutex to shared variables if necessary
-        //this->alg_.lock();
-        //this->odometry_mutex_enter();
 
         float dt = (msg->header.stamp - last_odom_stamp_).toSec();
         addCapture(new CaptureOdom2D(TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
@@ -383,9 +403,6 @@ void WolfGPSNode::odometryCallback(const nav_msgs::Odometry::ConstPtr& msg)
                                                     Eigen::Vector3s(msg->twist.twist.linear.x*dt, 0. ,msg->twist.twist.angular.z*dt)));
         //Eigen::Vector3s(msg->pose.pose.position.x, 0. ,tf::getYaw(msg->pose.pose.orientation))));
 
-        //unlock previously blocked shared variables
-        //this->alg_.unlock();
-        //this->odometry_mutex_exit();
     }
     last_odom_stamp_ = msg->header.stamp;
 }
@@ -400,9 +417,9 @@ void WolfGPSNode::createFrame(const TimeStamp& _time_stamp)
 void WolfGPSNode::addCapture(CaptureBase* _capture)
 {
     new_captures_.push(_capture);
-    //std::cout << "added new capture: " << _capture->nodeId() << " stamp: ";
-    //_capture->getTimeStamp().print();
-    //std::cout << std::endl;
+//    std::cout << "added new capture: " << _capture->nodeId() << " stamp: ";
+//    _capture->getTimeStamp().print();
+//    std::cout << std::endl;
 }
 
 
@@ -422,77 +439,38 @@ void WolfGPSNode::manageWindow()
 
 void WolfGPSNode::addSensor(SensorBase* _sensor_ptr)
 {
-    //std::cout << "adding sensor... to hardware " << problem_->getHardwarePtr()->nodeId() << std::endl;
+    std::cout << "adding sensor... to hardware " << problem_->getHardwarePtr()->nodeId() << std::endl;
     problem_->getHardwarePtr()->addSensor(_sensor_ptr);
-    //std::cout << "added!" << std::endl;
+    std::cout << "added!" << std::endl;
 }
 
-/*
- * TODO qui rispetto al suo codice ho tolto tutta la partedi tf
- * è solo per visualizzare i risultati o serve anche per creare il problema?
- */
-void WolfGPSNode::loadGPSTf()
-{
-    tf::StampedTransform base_2_gps;
-    tf::StampedTransform ecef_2_map;
-
-    //std::cout << "waiting for gps antenna transform: " << std::endl;
-    if ( tfl_.waitForTransform(base_frame_name_, gps_frame_name_, ros::Time(0), ros::Duration(1.)) )
-    {
-        //look up for transform at TF
-        tfl_.lookupTransform(base_frame_name_, gps_frame_name_, ros::Time(0), base_2_gps);
-
-        //Set mounting frame. Fill translation part
-        Eigen::Matrix<WolfScalar, 3, 1> gps_sensor_p;
-        gps_sensor_p << base_2_gps.getOrigin().x(),
-                        base_2_gps.getOrigin().y(),
-                        base_2_gps.getOrigin().z();
-
-        StateBlock* sensor_p = new StateBlock(gps_sensor_p);
-        sensor_p->fix();
-        StateBlock* sensor_o = new StateBlock(Eigen::Vector4s::Zero(), ST_QUATERNION);   //gps sensor orientation
-        sensor_o->fix(); //orientation is fixed, because antenna omnidirectional, so is not going to be optimized
-
-        //DEBUG: prints gps sensor pose
-        std::cout << "GPS sensor " << ": " << gps_frame_name_ << ": " << gps_sensor_p.transpose() << std::endl;
-
-        if ( tfl_.waitForTransform(ecef_frame_name_, map_frame_name_, ros::Time(0), ros::Duration(1.)) )
-        {
-            //look up for transform at TF
-            tfl_.lookupTransform(ecef_frame_name_, map_frame_name_, ros::Time(0), ecef_2_map);
-
-
-            Eigen::Matrix<WolfScalar, 4, 1> init_vehicle_pose;
-            init_vehicle_pose << ecef_2_map.getOrigin().x(),
-                    ecef_2_map.getOrigin().y(),
-                    ecef_2_map.getOrigin().z(),
-                    tf::getYaw(ecef_2_map.getRotation());
-
-            //DEBUG: prints map pose (aka init_vehicle_pose)
-            std::cout << "init_vechicle_pose " << ": " << map_frame_name_ << ": " << init_vehicle_pose.transpose() << std::endl;
-
-
-
-            //set wolf states and sensors
-            gps_sensor_ptr_ = new SensorGPS(sensor_p,
-                                            sensor_o,
-                                            new StateBlock(Eigen::Vector1s::Zero()),//sensor_bias,
-                                            new StateBlock(init_vehicle_pose.head(3)),//init_vehicle_p,
-                                            new StateBlock(init_vehicle_pose.tail(1)));//init_vehicle_o);
-            addSensor(gps_sensor_ptr_);
-            gps_sensor_ptr_->addProcessor(new ProcessorGPS());
-            gps_tf_loaded_ = true;
-
-            std::cout << "GPS antenna initialized" << std::endl;
-        }
-        else
-        {
-            ROS_WARN("No TF found from ecef to %s", map_frame_name_.c_str());
-        }
-
-    }
-    else
-    {
-        ROS_WARN("No TF found from agv_base_link to %s",gps_frame_name_.c_str());
-    }
-}
+///*
+// * TODO qui rispetto al suo codice ho tolto tutta la partedi tf
+// * è solo per visualizzare i risultati o serve anche per creare il problema?
+// */
+//void WolfGPSNode::loadGPSTf()
+//{
+//    std::cout << "loading GPS sensor " << std::endl;
+//
+//    //DEBUG: prints gps sensor pose
+////    std::cout << "GPS sensor " << ": " << gps_frame_name_ << ": " << gps_sensor_p.transpose() << std::endl;
+//
+//
+//    //DEBUG: prints map pose (aka init_vehicle_pose)
+////    std::cout << "init_vechicle_pose " << ": " << map_frame_name_ << ": " << init_vehicle_pose.transpose() << std::endl;
+//
+//
+//
+//    //set wolf states and sensors
+//    gps_sensor_ptr_ = new SensorGPS(sensor_p,
+//                                    sensor_o,
+//                                    new StateBlock(Eigen::Vector1s::Zero()),//sensor_bias,
+//                                    new StateBlock(init_vehicle_pose.head(3)),//init_vehicle_p,
+//                                    new StateBlock(init_vehicle_pose.tail(1)));//init_vehicle_o);
+//    addSensor(gps_sensor_ptr_);
+//    gps_sensor_ptr_->addProcessor(new ProcessorGPS());
+//    gps_tf_loaded_ = true;
+//
+//    std::cout << "GPS antenna initialized" << std::endl;
+//
+//}

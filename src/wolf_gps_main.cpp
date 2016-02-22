@@ -48,7 +48,7 @@ int main(int argc, char **argv)
     /*
      * Wolf ROS node
      */
-    WolfGPSNode* wgps = new WolfGPSNode(PO_2D, odom_sensor_ptr_,Eigen::Vector3s::Zero(), Eigen::Matrix3s::Identity()*0.01, window_length_, new_frame_elapsed_time_);
+    WolfGPSNode* wgps = new WolfGPSNode(gps_sensor_ptr, PO_2D, odom_sensor_ptr_, Eigen::Vector3s::Zero(), Eigen::Matrix3s::Identity()*0.01, window_length_, new_frame_elapsed_time_);
 
 
 

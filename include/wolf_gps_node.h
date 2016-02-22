@@ -43,12 +43,14 @@
  *      STD includes      *
  **************************/
 #include <iostream>
+#include <iomanip>
 #include <queue>
 
 class WolfGPSNode
 {
 public:
-    WolfGPSNode(const FrameStructure _frame_structure,
+    WolfGPSNode(SensorGPS* _gps_sensor_ptr,
+                const FrameStructure _frame_structure,
                 SensorBase* _sensor_prior_ptr,
                 const Eigen::VectorXs& _prior,
                 const Eigen::MatrixXs& _prior_cov,
@@ -105,8 +107,8 @@ protected:
     std::string map_frame_name_;
     std::string odom_frame_name_;
 
-    void loadGPSTf();
-    bool gps_tf_loaded_;
+//    void loadGPSTf();
+//    bool gps_tf_loaded_;
 
     //ceres
     int max_iterations_;
