@@ -1,4 +1,3 @@
-
 //
 // Created by ptirindelli on 8/02/16.
 //
@@ -6,57 +5,47 @@
 #include "wolf_gps_node.h"
 
 
-WolfGPSNode::WolfGPSNode(SensorGPS* _gps_sensor_ptr,
-                         SensorBase* _sensor_prior_ptr,
-                         const Eigen::VectorXs& _prior,
+WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
                          const unsigned int& _trajectory_size,
-                         const WolfScalar& _new_frame_elapsed_time) :
+                         const WolfScalar& _new_frame_elapsed_time,
+                         const Eigen::Vector3s& _gps_sensor_p,
+                         Eigen::Vector4s& _init_vehicle_pose,
+                         Eigen::Vector2s& _odom_std) :
         nh_(ros::this_node::getName()),
         last_odom_stamp_(0),
-
-        gps_sensor_ptr_(_gps_sensor_ptr),
-
         problem_(new WolfProblem()),
-        sensor_prior_(_sensor_prior_ptr),
         current_frame_(nullptr),
         last_key_frame_(nullptr),
         last_capture_relative_(nullptr),
         trajectory_size_(_trajectory_size),
         new_frame_elapsed_time_(_new_frame_elapsed_time)
 {
-    std::cout << "WolfGPSNode::WolfGPSNode(...) -- constructor\n";
+    //std::cout << "WolfGPSNode::WolfGPSNode(...) -- constructor\n";
+    assert( _prior.size() == 3 && "Wrong init_frame state vector");
 
-    //******** inizio costrutt wolf manager
-    assert( _prior.size() == 3 && "Wrong init_frame state vector or covariance matrix size");
+    // GPS sensor
+    gps_sensor_ptr_ = new SensorGPS(new StateBlock(_gps_sensor_p, true), //gps sensor position. for now is fixed,
+                                    new StateBlock(Eigen::Vector4s::Zero(), true),   //gps sensor orientation. is fixed
+                                    new StateBlock(Eigen::Vector1s::Zero()),    //gps sensor bias
+                                    new StateBlock(_init_vehicle_pose.head(3)),    //vehicle initial position
+                                    new StateBlock(_init_vehicle_pose.tail(3)));// vehicle initial orientation
+    problem_->getHardwarePtr()->addSensor(gps_sensor_ptr_);
+    gps_sensor_ptr_->addProcessor(new ProcessorGPS());
 
+    // Odometry sensor
+    sensor_prior_ = new SensorOdom2D(new StateBlock(Eigen::Vector2s::Zero()), new StateBlock(Eigen::Vector1s::Zero()), _odom_std[0], _odom_std[1]);//both arguments initialized on top
+    problem_->getHardwarePtr()->addSensor(sensor_prior_);
+    //TODO i'm not adding a processor, correct?
 
     // Initial frame
     createFrame(_prior, TimeStamp(0));
     first_window_frame_ = problem_->getTrajectoryPtr()->getFrameListPtr()->begin();
     //std::cout << " first_window_frame_" << std::endl;
 
-
     // Current robot frame
     createFrame(_prior, TimeStamp(0));
 
-//    gps_tf_loaded_ = false;
 
-    //std::cout << " wolfmanager initialized" << std::endl;
-    //************ fine costrutt wolf manager
-
-
-    base_frame_name_ = "base";
-    gps_frame_name_ = "gps";
-    ecef_frame_name_ = "ecef";
-    map_frame_name_ = "map";
-    odom_frame_name_ = "odom";
-
-    // Odometry sensor
-    problem_->getHardwarePtr()->addSensor(sensor_prior_);
-
-    // GPS sensor
-    problem_->getHardwarePtr()->addSensor(gps_sensor_ptr_);
-    gps_sensor_ptr_->addProcessor(new ProcessorGPS());
 
     // [init publishers]
     //TODO ask joan: why map2base is between map and odom?
@@ -106,7 +95,7 @@ void WolfGPSNode::gpsCallback(const iri_common_drivers_msgs::SatellitePseudorang
     {
         //std::cout << "------MSG: found " << msg->measurements.size() << " sats\n";
 
-        std::cout << "creating CaptureGPS\n";
+        std::cout << "creating CaptureGPS with " << msg->measurements.size() << " measurements\n";
         // Create CaptureGPS
         rawgpsutils::SatellitesObs obs;
         obs.time_ros_sec_ = msg->time_ros.sec;
@@ -130,13 +119,8 @@ void WolfGPSNode::gpsCallback(const iri_common_drivers_msgs::SatellitePseudorang
 
         TimeStamp time_stamp(obs.time_ros_sec_, obs.time_ros_nsec_);
 
-
         addCapture(new CaptureGPS(time_stamp, gps_sensor_ptr_, obs));
-
-//        CaptureGPS* cpt_ptr_ = new CaptureGPS(time_stamp, gps_sensor_ptr_, obs);
-//        new_captures_.push(cpt_ptr_);
     }
-
 }
 
 bool WolfGPSNode::hasDataToProcess()
@@ -201,27 +185,22 @@ void WolfGPSNode::process()
     // [...]
 
 
-    if(gps_sensor_ptr_!= nullptr)
-    {
-        std::cout << std::setprecision(12);
-        std::cout << "\n~~~~ RESULTS ~~~~\n";
-        std::cout << "|\tinitial P: " << gps_sensor_ptr_->getInitVehiclePPtr()->getVector().transpose() <<
-        std::endl;// initial vehicle position (ecef)
-        std::cout << "|\tinitial O: " << gps_sensor_ptr_->getInitVehicleOPtr()->getVector().transpose() <<
-        std::endl;// initial vehicle orientation (ecef)
-        std::cout << "|\tVehicle Pose: " << getVehiclePose().transpose() <<
-        std::endl;// position of the vehicle's frame with respect to the initial pos frame
-        //    std::cout << "|\tVehicle P (last frame): " << problem_->getLastFramePtr()->getPPtr()->getVector().transpose() << std::endl;// position of the vehicle's frame with respect to the initial pos frame
-        //    std::cout << "|\tVehicle O (last frame): " << problem_->getLastFramePtr()->getOPtr()->getVector().transpose() << std::endl;// position of the vehicle's frame with respect to the initial pos frame
-        std::cout << "|\tsensor P: " << gps_sensor_ptr_->getPPtr()->getVector().transpose() <<
-        std::endl;// position of the sensor with respect to the vehicle's frame
-        //        std::cout << "|\tsensor O (not needed):" << gps_sensor_ptr_->getOPtr()->getVector().transpose() << std::endl;// orientation of antenna is not needed, because omnidirectional
-        std::cout << "|\tbias: " << gps_sensor_ptr_->getIntrinsicPtr()->getVector().transpose() <<
-        std::endl;//intrinsic parameter  = receiver time bias
-        std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n";
-    }
-
-
+    std::cout << std::setprecision(12);
+    std::cout << "\n~~~~ RESULTS ~~~~\n";
+    std::cout << "|\tinitial P: " << gps_sensor_ptr_->getInitVehiclePPtr()->getVector().transpose() <<
+    std::endl;// initial vehicle position (ecef)
+    std::cout << "|\tinitial O: " << gps_sensor_ptr_->getInitVehicleOPtr()->getVector().transpose() <<
+    std::endl;// initial vehicle orientation (ecef)
+    std::cout << "|\tVehicle Pose: " << getVehiclePose().transpose() <<
+    std::endl;// position of the vehicle's frame with respect to the initial pos frame
+    //    std::cout << "|\tVehicle P (last frame): " << problem_->getLastFramePtr()->getPPtr()->getVector().transpose() << std::endl;// position of the vehicle's frame with respect to the initial pos frame
+    //    std::cout << "|\tVehicle O (last frame): " << problem_->getLastFramePtr()->getOPtr()->getVector().transpose() << std::endl;// position of the vehicle's frame with respect to the initial pos frame
+    std::cout << "|\tsensor P: " << gps_sensor_ptr_->getPPtr()->getVector().transpose() <<
+    std::endl;// position of the sensor with respect to the vehicle's frame
+    //        std::cout << "|\tsensor O (not needed):" << gps_sensor_ptr_->getOPtr()->getVector().transpose() << std::endl;// orientation of antenna is not needed, because omnidirectional
+    std::cout << "|\tbias: " << gps_sensor_ptr_->getIntrinsicPtr()->getVector().transpose() <<
+    std::endl;//intrinsic parameter  = receiver time bias
+    std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n";
 }
 
 
@@ -322,11 +301,6 @@ void WolfGPSNode::createFrame(const TimeStamp& _time_stamp)
 
 void WolfGPSNode::addCapture(CaptureBase* new_capture)
 {
-    //new_captures_.push(_capture);
-//    std::cout << "added new capture: " << _capture->nodeId() << " stamp: ";
-//    _capture->getTimeStamp().print();
-//    std::cout << std::endl;
-
     // OVERWRITE CURRENT STAMP
     current_frame_->setTimeStamp(new_capture->getTimeStamp());
 

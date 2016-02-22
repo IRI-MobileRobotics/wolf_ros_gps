@@ -49,11 +49,12 @@
 class WolfGPSNode
 {
 public:
-    WolfGPSNode(SensorGPS* _gps_sensor_ptr,
-                SensorBase* _sensor_prior_ptr,
-                const Eigen::VectorXs& _prior,
+    WolfGPSNode(const Eigen::VectorXs& _prior,
                 const unsigned int& _trajectory_size,
-                const WolfScalar& _new_frame_elapsed_time);
+                const WolfScalar& _new_frame_elapsed_time,
+                const Eigen::Vector3s& _gps_sensor_p,
+                Eigen::Vector4s& _init_vehicle_pose,
+                Eigen::Vector2s& _odom_std);
     virtual ~WolfGPSNode();
 
     bool hasDataToProcess();
@@ -63,16 +64,15 @@ public:
     void createFrame(const Eigen::VectorXs& _frame_state, const TimeStamp& _time_stamp);
     void createFrame(const TimeStamp& _time_stamp);
     void manageWindow();
-//    void addSensor(SensorBase* _sensor_ptr);
 
 protected:
-    //-------------- WOLF manager stuff--------------
     //sets the problem
     WolfProblem* problem_;
     FrameStructure frame_structure_;
 
     //pointer to a sensor providing predictions
-    SensorBase* sensor_prior_;
+    SensorBase* sensor_prior_;//TODO oppure  SensorOdom2D* odom_sensor_ptr_; ??
+    SensorGPS* gps_sensor_ptr_;
 
     //auxiliar/temporary iterators, frames and captures
     FrameBaseIter first_window_frame_;
@@ -80,7 +80,6 @@ protected:
     FrameBase* last_key_frame_;
     CaptureMotion* last_capture_relative_;
     CaptureMotion* second_last_capture_relative_;
-    std::queue<CaptureBase*> new_captures_;
 
     //Manager parameters
     unsigned int trajectory_size_;
@@ -90,22 +89,17 @@ protected:
     bool checkNewFrame(CaptureBase* new_capture);
     Eigen::VectorXs getVehiclePose(const TimeStamp& _now = 0);
 
-    //---------------WOLF NODE STUFF-----------------
     //transforms
     tf::TransformBroadcaster tfb_;
     tf::TransformListener    tfl_;
     tf::Transform Tf_map2base_; //wolf output
     tf::Transform Tf_odom2base_; //published by odom source
     tf::Transform Tf_map2odom_; //to be broadcasted by this node
-    std::string base_frame_name_;
-    std::string gps_frame_name_;
-
-    std::string ecef_frame_name_;
-    std::string map_frame_name_;
-    std::string odom_frame_name_;
-
-//    void loadGPSTf();
-//    bool gps_tf_loaded_;
+    const std::string base_frame_name_ = "base";
+    const std::string gps_frame_name_ = "gps";
+    const std::string ecef_frame_name_ = "ecef";
+    const std::string map_frame_name_ = "map";
+    const std::string odom_frame_name_ = "odom";
 
     //ceres
     int max_iterations_;
@@ -113,15 +107,6 @@ protected:
     ceres::Solver::Options ceres_options_;
     ceres::Problem::Options problem_options_;
     CeresManager* ceres_manager_;
-    //-----------------------------------------------
-
-
-//    E' il sensor prior!
-//    //Wolf: odom sensor
-//    SensorOdom2D* odom_sensor_ptr_;
-
-    //Wolf: gps sensor
-    SensorGPS* gps_sensor_ptr_;
 
     //Odometry callback
     ros::Time last_odom_stamp_;
@@ -135,8 +120,6 @@ protected:
 
     // ROS node handle
     ros::NodeHandle nh_;
-
 };
-
 
 #endif //WOLF_ROS_WOLF_GPS_NODE_H

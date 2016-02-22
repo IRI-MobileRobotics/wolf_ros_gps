@@ -9,64 +9,37 @@ int main(int argc, char **argv)
 {
     std::cout << "\n=========== WOLF GPS MAIN ===========\n\n";
 
-    /*
-     * Init ROS
-     */
+    // Init ROS
     ros::init(argc, argv, "wolf_gps_node");
 
-    /*
-     * Init GPS sensor
-     */
-    StateBlock* sensor_p = new StateBlock(Eigen::Vector3s::Zero()); //gps sensor position
-    sensor_p->fix(); // TODO only for now, to simplify things
-    StateBlock* sensor_o = new StateBlock(Eigen::Vector4s::Zero());   //gps sensor orientation
-    sensor_o->fix(); //orientation is fixed, because antenna omnidirectional, so is not going to be optimized
-    StateBlock* sensor_bias = new StateBlock(Eigen::Vector1s::Zero());    //gps sensor bias
-    StateBlock* init_vehicle_p = new StateBlock(Eigen::Vector3s(4789000, 177000, 4195000));    //vehicle initial position
-    StateBlock* init_vehicle_o = new StateBlock(Eigen::Vector1s::Zero());// vehicle initial orientation
-    SensorGPS* gps_sensor_ptr = new SensorGPS(sensor_p, sensor_o, sensor_bias, init_vehicle_p, init_vehicle_o);
+    // some parameters for the node
+    Eigen::Vector3s prior = Eigen::Vector3s(0, 0, 0);//prior pose of base in map
+    int window_length = 8;
+    double new_frame_elapsed_time = 1.0;
+    Eigen::Vector3s gps_sensor_p(2, 2, 2);
+    Eigen::Vector4s init_vehicle_pose(4789400, 176900, 4194500, 0);
+    Eigen::Vector2s odom_std(0.2, 0.2);
 
-    /*
-     * Init odometry sensor
-     */
-    WolfScalar odom_std[2];
-    odom_std[0] = 0.2; // odometry_translational_std
-    odom_std[1] = 0.2; // odometry_rotational_std
-    SensorOdom2D* odom_sensor_ptr_ = new SensorOdom2D(new StateBlock(Eigen::Vector2s::Zero()), new StateBlock(Eigen::Vector1s::Zero()), odom_std[0], odom_std[1]);//both arguments initialized on top
-
-    /*
-     * Init prior
-     */
-    Eigen::Vector3s prior = Eigen::Vector3s(0, 0, 0); // TODO ecef init pose
-
-    /*
-     * params for wolf manager etc
-     */
-    int window_length_ = 8;
-    double new_frame_elapsed_time_ = 1.0;
-
-    /*
-     * Wolf ROS node
-     */
-    WolfGPSNode* wgps = new WolfGPSNode(gps_sensor_ptr, odom_sensor_ptr_, prior, window_length_, new_frame_elapsed_time_);
+    // Wolf GPS ROS node
+    WolfGPSNode* wgps = new WolfGPSNode(prior, window_length, new_frame_elapsed_time, gps_sensor_p, init_vehicle_pose, odom_std);
 
 
-
-    ros::Rate loopRate(1);// TODO wgps().getRate());
+    ros::Rate loopRate(1);
 
     while(ros::ok())
     {
         //execute pending callbacks
         ros::spinOnce();
 
-        if(wgps->hasDataToProcess())
+        if(wgps->hasDataToProcess())//TODO mettere un altro tipo di controllo. vedi foglio todo
         {
             wgps->process();
-//            wgps.publish();
         }
 
+        // todo publish pose, broadcast tf and everything
+
         //relax to fit output rate
-        loopRate.sleep();
+        loopRate.sleep();//TODO togli?
 
     }
 
