@@ -65,6 +65,9 @@ public:
     void createFrame(const TimeStamp& _time_stamp);
     void manageWindow();
 
+    ros::Time getTimeLastProcess();
+    void publish();
+
 protected:
     //sets the problem
     WolfProblem* problem_;
@@ -92,12 +95,12 @@ protected:
     //transforms
     tf::TransformBroadcaster tfb_;
     tf::TransformListener    tfl_;
-    tf::Transform Tf_map2base_; //wolf output
-    tf::Transform Tf_odom2base_; //published by odom source
-    tf::Transform Tf_map2odom_; //to be broadcasted by this node
+    tf::Transform T_map2base_;  //wolf output
+    tf::Transform T_odom2base_; //published by odom source
+    tf::Transform T_map2odom_;  //to be broadcasted by this node
     const std::string base_frame_name_ = "base";
     const std::string gps_frame_name_ = "gps";
-    const std::string ecef_frame_name_ = "ecef";
+    const std::string world_frame_name_ = "world";
     const std::string map_frame_name_ = "map";
     const std::string odom_frame_name_ = "odom";
 
@@ -117,6 +120,8 @@ protected:
     ros::Subscriber gps_sub_; // gps subscriber
     void gpsCallback(const iri_common_drivers_msgs::SatellitePseudorangeArray::ConstPtr& msg);
     int gps_data_arrived_;
+
+    ros::Time time_last_process_;
 
     // ROS node handle
     ros::NodeHandle nh_;

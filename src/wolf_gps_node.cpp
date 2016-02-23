@@ -28,7 +28,7 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
                                     new StateBlock(Eigen::Vector4s::Zero(), true),   //gps sensor orientation. is fixed
                                     new StateBlock(Eigen::Vector1s::Zero()),    //gps sensor bias
                                     new StateBlock(_init_vehicle_pose.head(3)),    //vehicle initial position
-                                    new StateBlock(_init_vehicle_pose.tail(3)));// vehicle initial orientation
+                                    new StateBlock(_init_vehicle_pose.tail(1)));// vehicle initial orientation
     problem_->getHardwarePtr()->addSensor(gps_sensor_ptr_);
     gps_sensor_ptr_->addProcessor(new ProcessorGPS());
 
@@ -48,23 +48,28 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
 
 
     // [init publishers]
-    //TODO ask joan: why map2base is between map and odom?
+    //TODO ask joan: why map2base is between map and odom? (see his constructor)
     // Broadcast 0 transform to align frames initially
-    Tf_map2base_ = tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(0,0,0));
-    tfb_.sendTransform( tf::StampedTransform(Tf_map2base_, ros::Time::now(), map_frame_name_, odom_frame_name_));
+    T_map2base_ = tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(0,0,0));
+    tfb_.sendTransform( tf::StampedTransform(T_map2base_, ros::Time::now(), map_frame_name_, base_frame_name_));
+
+    T_map2odom_ = tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(0,0,0));
+    tfb_.sendTransform( tf::StampedTransform(T_map2odom_, ros::Time::now(), map_frame_name_, odom_frame_name_));
+
+
 
     // [init subscribers]
     odom_sub_ = nh_.subscribe("odometry", 10, &WolfGPSNode::odometryCallback, this);
     gps_sub_ = nh_.subscribe("/sat_pseudoranges", 1000, &WolfGPSNode::gpsCallback, this);
     gps_data_arrived_ = 0;
 
-    max_iterations_ = 100;
+    max_iterations_ = 1e4;
 
     use_auto_diff_wrapper_ = false;
     apply_loss_function_ = false;
 
     // init ceres
-    ceres_options_.minimizer_type = ceres::LINE_SEARCH;//ceres::TRUST_REGION;
+    ceres_options_.minimizer_type = ceres::TRUST_REGION;
     ceres_options_.max_line_search_step_contraction = 1e-3;
     ceres_options_.max_num_iterations = max_iterations_;
     problem_options_.cost_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
@@ -73,7 +78,6 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
     ceres_manager_ = new CeresManager(problem_, problem_options_);
 
     ROS_INFO("STARTING IRI WOLF...");
-
 }
 
 WolfGPSNode::~WolfGPSNode()
@@ -95,7 +99,6 @@ void WolfGPSNode::gpsCallback(const iri_common_drivers_msgs::SatellitePseudorang
     {
         //std::cout << "------MSG: found " << msg->measurements.size() << " sats\n";
 
-        std::cout << "creating CaptureGPS with " << msg->measurements.size() << " measurements\n";
         // Create CaptureGPS
         rawgpsutils::SatellitesObs obs;
         obs.time_ros_sec_ = msg->time_ros.sec;
@@ -120,18 +123,16 @@ void WolfGPSNode::gpsCallback(const iri_common_drivers_msgs::SatellitePseudorang
         TimeStamp time_stamp(obs.time_ros_sec_, obs.time_ros_nsec_);
 
         addCapture(new CaptureGPS(time_stamp, gps_sensor_ptr_, obs));
-    }
-}
+        //std::cout << "added CaptureGPS with " << msg->measurements.size() << " measurements\n";
 
-bool WolfGPSNode::hasDataToProcess()
-{
-    return (gps_data_arrived_ > 0);
+    }
 }
 
 void WolfGPSNode::process()
 {
     std::cout << "COMPUTING the last " << gps_data_arrived_ << " GPS obs. ros time now() = " << ros::Time::now() << std::endl;
     gps_data_arrived_ = 0;
+    time_last_process_ = ros::Time::now();
 
     //solve problem
     //std::cout << "wolf updated" << std::endl;
@@ -146,7 +147,7 @@ void WolfGPSNode::process()
     //std::cout << "covariances computed" << std::endl;
 
     // Sets localization timestamp & Gets wolf localization estimate
-    ros::Time loc_stamp = ros::Time::now();
+    ros::Time loc_stamp = time_last_process_;//ros::Time::now();
     Eigen::VectorXs vehicle_pose  = getVehiclePose();
 
     // Broadcast transform ---------------------------------------------------------------------------
@@ -176,7 +177,28 @@ void WolfGPSNode::process()
 
     }
     else
-        ROS_WARN("No odom to base frame received");
+        ROS_WARN("No odom_to_base frame received");
+
+    //quaternione che fa ruotare l'asse x in modo che combaci con il vettore passato
+    Eigen::Quaterniond rot;
+    rot.setFromTwoVectors(Eigen::Vector3d::UnitZ(), gps_sensor_ptr_->getInitVehiclePPtr()->getVector());
+
+    /*
+     * TODO
+     * find geographic north and align x-axis to north+initVehicleO
+     */
+
+    tf::Transform T_map2ecef;
+    T_map2ecef.setOrigin(tf::Vector3(gps_sensor_ptr_->getInitVehiclePPtr()->getVector()[0], gps_sensor_ptr_->getInitVehiclePPtr()->getVector()[1], gps_sensor_ptr_->getInitVehiclePPtr()->getVector()[2]));
+    //I think that with this multiplication between quaternion i obtain the desired rotation: z-axis aligned normal tu the ground, x-axis aligned alpha degree from north
+    T_map2ecef.setRotation(tf::Quaternion(rot.x(), rot.y(), rot.z(), rot.w()) * tf::createQuaternionFromYaw(gps_sensor_ptr_->getInitVehicleOPtr()->getVector()[0]));
+    tfb_.sendTransform(tf::StampedTransform(T_map2ecef, loc_stamp, world_frame_name_, map_frame_name_));
+
+
+    tf::Transform T_base2map;
+    T_base2map.setOrigin( tf::Vector3(vehicle_pose(0), vehicle_pose(1), 0) );
+    T_base2map.setRotation( tf::createQuaternionFromYaw(vehicle_pose(2)) );
+    tfb_.sendTransform(tf::StampedTransform(T_base2map, loc_stamp, map_frame_name_, base_frame_name_));
 
     //End Broadcast transform -----------------------------------------------------------------------------
     // [fill msg structures]
@@ -187,19 +209,18 @@ void WolfGPSNode::process()
 
     std::cout << std::setprecision(12);
     std::cout << "\n~~~~ RESULTS ~~~~\n";
-    std::cout << "|\tinitial P: " << gps_sensor_ptr_->getInitVehiclePPtr()->getVector().transpose() <<
-    std::endl;// initial vehicle position (ecef)
-    std::cout << "|\tinitial O: " << gps_sensor_ptr_->getInitVehicleOPtr()->getVector().transpose() <<
-    std::endl;// initial vehicle orientation (ecef)
-    std::cout << "|\tVehicle Pose: " << getVehiclePose().transpose() <<
-    std::endl;// position of the vehicle's frame with respect to the initial pos frame
-    //    std::cout << "|\tVehicle P (last frame): " << problem_->getLastFramePtr()->getPPtr()->getVector().transpose() << std::endl;// position of the vehicle's frame with respect to the initial pos frame
-    //    std::cout << "|\tVehicle O (last frame): " << problem_->getLastFramePtr()->getOPtr()->getVector().transpose() << std::endl;// position of the vehicle's frame with respect to the initial pos frame
-    std::cout << "|\tsensor P: " << gps_sensor_ptr_->getPPtr()->getVector().transpose() <<
-    std::endl;// position of the sensor with respect to the vehicle's frame
+    std::cout << "|\tinitial P: " << gps_sensor_ptr_->getInitVehiclePPtr()->getVector().transpose() << std::endl;// initial vehicle position (ecef)
+    std::cout << "|\tinitial O: " << gps_sensor_ptr_->getInitVehicleOPtr()->getVector().transpose() << std::endl;// initial vehicle orientation (ecef)
+    std::cout << "|\tVehicle Poses: " << getVehiclePose().transpose() << std::endl;// position of the vehicle's frame with respect to the initial pos frame
+//    //To print all the previous frame
+//    for (auto it : *(problem_->getTrajectoryPtr()->getFrameListPtr()))
+//    {
+//        std::cout << "|\tVehicle P: " << it->getPPtr()->getVector().transpose() << std::endl;
+//        std::cout << "|\tVehicle O: " << it->getOPtr()->getVector().transpose() << std::endl;
+//    }
+    std::cout << "|\tsensor P: " << gps_sensor_ptr_->getPPtr()->getVector().transpose() << std::endl;// position of the sensor with respect to the vehicle's frame
     //        std::cout << "|\tsensor O (not needed):" << gps_sensor_ptr_->getOPtr()->getVector().transpose() << std::endl;// orientation of antenna is not needed, because omnidirectional
-    std::cout << "|\tbias: " << gps_sensor_ptr_->getIntrinsicPtr()->getVector().transpose() <<
-    std::endl;//intrinsic parameter  = receiver time bias
+    std::cout << "|\tbias: " << gps_sensor_ptr_->getIntrinsicPtr()->getVector().transpose() << std::endl;//intrinsic parameter  = receiver time bias
     std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n";
 }
 
@@ -225,7 +246,7 @@ bool WolfGPSNode::checkNewFrame(CaptureBase* new_capture)
 
 void WolfGPSNode::createFrame(const Eigen::VectorXs& _frame_state, const TimeStamp& _time_stamp)
 {
-    //std::cout << "creating new frame..." << std::endl;
+    std::cout << "creating new frame..." << std::endl;
 
     // current frame -> KEYFRAME
     last_key_frame_ = current_frame_;
@@ -294,6 +315,8 @@ void WolfGPSNode::createFrame(const TimeStamp& _time_stamp)
     //std::cout << "creating new frame from prior..." << std::endl;
     if (last_capture_relative_ != nullptr)
         createFrame(last_capture_relative_->computeFramePose(_time_stamp), _time_stamp);
+    else if (last_key_frame_ != nullptr)
+        createFrame(last_key_frame_->getState(), _time_stamp);
     else
         createFrame(problem_->getTrajectoryPtr()->getLastFramePtr()->getState(), _time_stamp);
 }
@@ -317,11 +340,23 @@ void WolfGPSNode::addCapture(CaptureBase* new_capture)
     {
         //std::cout << "adding odometry capture..." << new_capture->nodeId() << std::endl;
 
-        // ADD/INTEGRATE NEW ODOMETRY TO THE LAST FRAME
-        last_capture_relative_->integrateCapture((CaptureMotion*) (new_capture));
-        current_frame_->setState(last_capture_relative_->computeFramePose(new_capture->getTimeStamp()));
-        current_frame_->setTimeStamp(new_capture->getTimeStamp());
-        delete new_capture;
+        // ADD ODOM CAPTURE TO THE CURRENT FRAME (or integrate to the previous capture)
+        //std::cout << "searching repeated capture..." << new_capture->nodeId() << std::endl;
+        CaptureBaseIter repeated_capture_it = current_frame_->hasCaptureOf(sensor_prior_);
+
+        if (repeated_capture_it != current_frame_->getCaptureListPtr()->end()) // repeated capture
+        {
+            //std::cout << "existing odom capture, integrating new capture" << new_capture->nodeId() << std::endl;
+            last_capture_relative_->integrateCapture((CaptureMotion*) (new_capture));
+            current_frame_->setState(last_capture_relative_->computeFramePose(new_capture->getTimeStamp()));
+            current_frame_->setTimeStamp(new_capture->getTimeStamp());
+            delete new_capture;
+        }
+        else
+        {
+            //std::cout << "not repeated, adding capture..." << new_capture->nodeId() << std::endl;
+            current_frame_->addCapture(new_capture);
+        }
     }
     else
     {
@@ -358,4 +393,19 @@ void WolfGPSNode::manageWindow()
         first_window_frame_++;
     }
     //std::cout << "window managed" << std::endl;
+}
+
+bool WolfGPSNode::hasDataToProcess()
+{
+    return (gps_data_arrived_ > 0);
+}
+
+ros::Time WolfGPSNode::getTimeLastProcess()
+{
+    return time_last_process_;
+}
+
+void WolfGPSNode::publish()
+{
+    //TODO
 }
