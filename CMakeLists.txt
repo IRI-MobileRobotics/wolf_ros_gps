@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(wolf_ros)
+project(wolf_ros_gps)
 
 #Set compiler according C++11 support
 include(CheckCXXCompilerFlag)
