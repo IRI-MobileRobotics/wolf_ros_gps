@@ -5,6 +5,10 @@
 #ifndef WOLF_ROS_WOLF_GPS_NODE_H
 #define WOLF_ROS_WOLF_GPS_NODE_H
 
+/**************************
+ *      raw_gps_utils     *
+ **************************/
+#include "raw_gps_utils/satellites_obs.h"
 
 /**************************
  *      WOLF includes     *
@@ -22,11 +26,6 @@
  *     CERES includes     *
  **************************/
 #include "wolf/ceres_wrapper/ceres_manager.h"
-
-/**************************
- *      raw_gps_utils     *
- **************************/
-#include "raw_gps_utils/satellites_obs.h"
 
 /**************************
  *      ROS includes      *

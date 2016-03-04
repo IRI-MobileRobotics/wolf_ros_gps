@@ -27,8 +27,8 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
     gps_sensor_ptr_ = new SensorGPS(new StateBlock(_gps_sensor_p, true), //gps sensor position. for now is fixed,
                                     new StateBlock(Eigen::Vector4s::Zero(), true),   //gps sensor orientation. is fixed
                                     new StateBlock(Eigen::Vector1s::Zero()),    //gps sensor bias
-                                    new StateBlock(_init_vehicle_pose.head(3)),    //vehicle initial position
-                                    new StateBlock(_init_vehicle_pose.tail(1)));// vehicle initial orientation
+                                    new StateBlock(_init_vehicle_pose.head(3), true),    //vehicle initial position TODO remove fix
+                                    new StateBlock(_init_vehicle_pose.tail(1), true));// vehicle initial orientation TODO remove fix
     problem_->getHardwarePtr()->addSensor(gps_sensor_ptr_);
     gps_sensor_ptr_->addProcessor(new ProcessorGPS());
 
@@ -59,7 +59,7 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
 
 
     // [init subscribers]
-    odom_sub_ = nh_.subscribe("odometry", 10, &WolfGPSNode::odometryCallback, this);
+    odom_sub_ = nh_.subscribe("/teo/odomfused", 10, &WolfGPSNode::odometryCallback, this);
     gps_sub_ = nh_.subscribe("/sat_pseudoranges", 1000, &WolfGPSNode::gpsCallback, this);
     gps_data_arrived_ = 0;
 
@@ -88,6 +88,23 @@ WolfGPSNode::~WolfGPSNode()
     //TODO check if is correct to put this here
     std::cout << std::endl << " ========= destroying ceres manager (now seg fault) =============" << std::endl;
     delete ceres_manager_;
+}
+
+
+void WolfGPSNode::odometryCallback(const nav_msgs::Odometry::ConstPtr& msg)
+{
+    //ROS_INFO("WolfAlgNode::relative_odometry_callback: New Message Received");
+    if (last_odom_stamp_ != ros::Time(0))
+    {
+        float dt = (msg->header.stamp - last_odom_stamp_).toSec();
+        addCapture(new CaptureOdom2D(TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
+                                     TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
+                                     sensor_prior_,
+                                     Eigen::Vector3s(msg->twist.twist.linear.x*dt, 0. ,msg->twist.twist.angular.z*dt)));
+        Eigen::Vector3s(msg->pose.pose.position.x, 0. ,tf::getYaw(msg->pose.pose.orientation));
+
+    }
+    last_odom_stamp_ = msg->header.stamp;
 }
 
 
@@ -130,7 +147,7 @@ void WolfGPSNode::gpsCallback(const iri_common_drivers_msgs::SatellitePseudorang
 
 void WolfGPSNode::process()
 {
-    std::cout << "COMPUTING the last " << gps_data_arrived_ << " GPS obs. ros time now() = " << ros::Time::now() << std::endl;
+    ROS_INFO("PROCESSING.\t\t(%i gps obs discarded)", gps_data_arrived_);
     gps_data_arrived_ = 0;
     time_last_process_ = ros::Time::now();
 
@@ -266,10 +283,10 @@ void WolfGPSNode::createFrame(const Eigen::VectorXs& _frame_state, const TimeSta
     if (last_key_frame_ != nullptr)
     {
         //TODO leave commented after adding odometry?
-//        CaptureMotion* empty_odom = new CaptureOdom2D(_time_stamp, _time_stamp, sensor_prior_, Eigen::Vector3s::Zero());
-//        current_frame_->addCapture(empty_odom);
-//        empty_odom->process();
-//        last_capture_relative_ = empty_odom;
+        CaptureMotion* empty_odom = new CaptureOdom2D(_time_stamp, _time_stamp, sensor_prior_, Eigen::Vector3s::Zero());
+        current_frame_->addCapture(empty_odom);
+        empty_odom->process();
+        last_capture_relative_ = empty_odom;
     }
     //std::cout << "last_key_frame_" << std::endl;
 
@@ -293,22 +310,6 @@ void WolfGPSNode::createFrame(const Eigen::VectorXs& _frame_state, const TimeSta
     //std::cout << "new frame created" << std::endl;
 }
 
-void WolfGPSNode::odometryCallback(const nav_msgs::Odometry::ConstPtr& msg)
-{
-    //ROS_INFO("WolfAlgNode::relative_odometry_callback: New Message Received");
-    if (last_odom_stamp_ != ros::Time(0))
-    {
-
-        float dt = (msg->header.stamp - last_odom_stamp_).toSec();
-        addCapture(new CaptureOdom2D(TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
-                                                    TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
-                                                    sensor_prior_,
-                                                    Eigen::Vector3s(msg->twist.twist.linear.x*dt, 0. ,msg->twist.twist.angular.z*dt)));
-        //Eigen::Vector3s(msg->pose.pose.position.x, 0. ,tf::getYaw(msg->pose.pose.orientation))));
-
-    }
-    last_odom_stamp_ = msg->header.stamp;
-}
 
 void WolfGPSNode::createFrame(const TimeStamp& _time_stamp)
 {
@@ -338,7 +339,7 @@ void WolfGPSNode::addCapture(CaptureBase* new_capture)
     // ODOMETRY SENSOR
     if (new_capture->getSensorPtr() == sensor_prior_)
     {
-        //std::cout << "adding odometry capture..." << new_capture->nodeId() << std::endl;
+        std::cout << "adding odometry capture..." << new_capture->nodeId() << std::endl;
 
         // ADD ODOM CAPTURE TO THE CURRENT FRAME (or integrate to the previous capture)
         //std::cout << "searching repeated capture..." << new_capture->nodeId() << std::endl;

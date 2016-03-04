@@ -16,8 +16,8 @@ int main(int argc, char **argv)
     Eigen::Vector3s prior = Eigen::Vector3s(0, 0, 0);//prior pose of base in map
     int window_length = 8;
     double new_frame_elapsed_time = 1.0;
-    Eigen::Vector3s gps_sensor_p(1, 0, 0);
-    Eigen::Vector4s init_vehicle_pose(4789400, 176900, 4194500, 0);
+    Eigen::Vector3s gps_sensor_p(-0.2, 0.55, 0.85);
+    Eigen::Vector4s init_vehicle_pose(4789397, 176959, 4194502, 0);
     Eigen::Vector2s odom_std(0.2, 0.2);
 
     // Wolf GPS ROS node
@@ -31,7 +31,7 @@ int main(int argc, char **argv)
         //execute pending callbacks
         ros::spinOnce();
 
-        if(ros::Time::now() > wgps->getTimeLastProcess() + ros::Duration(1))
+        if((wgps->hasDataToProcess())&&(ros::Time::now() > wgps->getTimeLastProcess() + ros::Duration(1)))
         {
             wgps->process();
         }
