@@ -27,8 +27,8 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
     gps_sensor_ptr_ = new SensorGPS(new StateBlock(_gps_sensor_p, true), //gps sensor position. for now is fixed,
                                     new StateBlock(Eigen::Vector4s::Zero(), true),   //gps sensor orientation. is fixed
                                     new StateBlock(Eigen::Vector1s::Zero()),    //gps sensor bias
-                                    new StateBlock(_init_vehicle_pose.head(3), true),    //vehicle initial position TODO remove fix
-                                    new StateBlock(_init_vehicle_pose.tail(1), true));// vehicle initial orientation TODO remove fix
+                                    new StateBlock(_init_vehicle_pose.head(3)),    //vehicle initial position TODO remove fix
+                                    new StateBlock(_init_vehicle_pose.tail(1)));// vehicle initial orientation TODO remove fix
     problem_->getHardwarePtr()->addSensor(gps_sensor_ptr_);
     gps_sensor_ptr_->addProcessor(new ProcessorGPS());
 
@@ -50,12 +50,9 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
     // [init publishers]
     //TODO ask joan: why map2base is between map and odom? (see his constructor)
     // Broadcast 0 transform to align frames initially
-    T_map2base_ = tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(0,0,0));
-    tfb_.sendTransform( tf::StampedTransform(T_map2base_, ros::Time::now(), map_frame_name_, base_frame_name_));
 
-    T_map2odom_ = tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(0,0,0));
+    T_map2odom_ = tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(1,1,1));//TODO rimetti 0 0 0
     tfb_.sendTransform( tf::StampedTransform(T_map2odom_, ros::Time::now(), map_frame_name_, odom_frame_name_));
-
 
 
     // [init subscribers]
@@ -167,7 +164,7 @@ void WolfGPSNode::process()
     ros::Time loc_stamp = time_last_process_;//ros::Time::now();
     Eigen::VectorXs vehicle_pose  = getVehiclePose();
 
-    // Broadcast transform ---------------------------------------------------------------------------
+    // Broadcast transforms ---------------------------------------------------------------------------
     //Get map2base from Wolf result, and builds base2map pose
     tf::Pose map2base;
     map2base.setOrigin( tf::Vector3(vehicle_pose(0), vehicle_pose(1), 0) );
@@ -186,11 +183,11 @@ void WolfGPSNode::process()
         tfl_.transformPose(odom_frame_name_, base2map, odom2map);
 
         //invert odom2map to get map2odom, and stamp it
-        //tf::Stamped<tf::Pose> map2odom(odom2map.inverse(), loc_stamp, map_frame_name_);
+        tf::Stamped<tf::Pose> map2odom(odom2map.inverse(), loc_stamp, map_frame_name_);
 
         //broadcast map2odom = odom2map.inverse()
-        //tfb_.sendTransform( tf::StampedTransform(map2odom, loc_stamp, map_frame_name_, odom_frame_name_) );
-        tfb_.sendTransform( tf::StampedTransform(odom2map.inverse(), loc_stamp, map_frame_name_, odom_frame_name_) );
+        tfb_.sendTransform( tf::StampedTransform(map2odom, loc_stamp, map_frame_name_, odom_frame_name_) );
+//        tfb_.sendTransform( tf::StampedTransform(odom2map.inverse(), loc_stamp, map_frame_name_, odom_frame_name_) );
 
     }
     else
@@ -339,7 +336,7 @@ void WolfGPSNode::addCapture(CaptureBase* new_capture)
     // ODOMETRY SENSOR
     if (new_capture->getSensorPtr() == sensor_prior_)
     {
-        std::cout << "adding odometry capture..." << new_capture->nodeId() << std::endl;
+        //std::cout << "adding odometry capture..." << new_capture->nodeId() << std::endl;
 
         // ADD ODOM CAPTURE TO THE CURRENT FRAME (or integrate to the previous capture)
         //std::cout << "searching repeated capture..." << new_capture->nodeId() << std::endl;

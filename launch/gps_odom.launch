@@ -7,7 +7,7 @@
   <node pkg="asterx1_node"
         type="raw_receiver_node"
         name="raw_receiver_node" 
-        output="screen"/>
+        />
 
   <node pkg="wolf_ros_gps"
         type="wolf_gps_node"
