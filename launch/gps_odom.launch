@@ -2,7 +2,9 @@
 
   <node name="rviz"
 		pkg="rviz"
-		type="rviz"/>
+		type="rviz"
+		args="-d $(find wolf_ros_gps)/rviz/gps_odom_teo.rviz"/>
+
 
   <node pkg="asterx1_node"
         type="raw_receiver_node"
