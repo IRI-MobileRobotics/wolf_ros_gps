@@ -17,7 +17,8 @@ int main(int argc, char **argv)
     int window_length = 8;
     double new_frame_elapsed_time = 1.0;
     Eigen::Vector3s gps_sensor_p(-0.2, 0.55, 0.85);
-    Eigen::Vector4s init_vehicle_pose(4789397, 176959, 4194502, -75.0*M_PI/180);
+    Eigen::Vector4s init_vehicle_pose(4789373, 177039, 4194527, 15.0*M_PI/180);//sidewalk near parking quimica
+
     Eigen::Vector2s odom_std(0.2, 0.2);
 
     // Wolf GPS ROS node

@@ -3,13 +3,12 @@
   <node name="rviz"
 		pkg="rviz"
 		type="rviz"
-		args="-d $(find wolf_ros_gps)/rviz/gps_odom_teo.rviz"/>
-
+		args="-d $(find wolf_ros_gps)/rviz/gps_odom_teo.rviz"
+		output="screen"/>
 
   <node pkg="asterx1_node"
         type="raw_receiver_node"
-        name="raw_receiver_node" 
-        />
+        name="raw_receiver_node" />
 
   <node pkg="wolf_ros_gps"
         type="wolf_gps_node"

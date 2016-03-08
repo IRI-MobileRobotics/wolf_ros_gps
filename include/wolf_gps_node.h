@@ -37,6 +37,7 @@
 #include "iri_common_drivers_msgs/SatellitePseudorangeArray.h"
 #include "iri_common_drivers_msgs/NavSatFix_ecef.h"
 #include <nav_msgs/Odometry.h>
+#include <visualization_msgs/Marker.h>
 
 /**************************
  *      STD includes      *
@@ -65,15 +66,21 @@ public:
     void manageWindow();
 
     ros::Time getTimeLastProcess();
-    void publish();
+    void publish();//TODO unused
+
+    void operatorDebug(Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o,
+                       Eigen::Vector3s _sensor_p, Eigen::Vector1s _bias,
+                       Eigen::Vector3s _init_vehicle_p, Eigen::Vector1s _init_vehicle_o);
 
 protected:
+    bool debug_mode = false;//debug mode
+
     //sets the problem
     WolfProblem* problem_;
     FrameStructure frame_structure_;
 
     //pointer to a sensor providing predictions
-    SensorBase* sensor_prior_;//TODO oppure  SensorOdom2D* odom_sensor_ptr_; ??
+    SensorOdom2D* sensor_prior_;
     SensorGPS* gps_sensor_ptr_;
 
     //auxiliar/temporary iterators, frames and captures
@@ -97,11 +104,11 @@ protected:
     tf::Transform T_map2base_;  //wolf output
     tf::Transform T_odom2base_; //published by odom source
     tf::Transform T_map2odom_;  //to be broadcasted by this node
-    const std::string base_frame_name_ = "base";
+    const std::string base_frame_name_ = "teo_base_footprint";
     const std::string gps_frame_name_ = "gps";
     const std::string world_frame_name_ = "world";
     const std::string map_frame_name_ = "map";
-    const std::string odom_frame_name_ = "odom";
+    const std::string odom_frame_name_ = "teo_odom";
 
     //ceres
     int max_iterations_;
@@ -119,6 +126,9 @@ protected:
     ros::Subscriber gps_sub_; // gps subscriber
     void gpsCallback(const iri_common_drivers_msgs::SatellitePseudorangeArray::ConstPtr& msg);
     int gps_data_arrived_;
+
+    // Publisher (markers)
+    ros::Publisher marker_pub_;
 
     ros::Time time_last_process_;
 
