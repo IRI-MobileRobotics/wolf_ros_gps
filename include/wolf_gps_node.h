@@ -73,7 +73,7 @@ public:
                        Eigen::Vector3s _init_vehicle_p, Eigen::Vector1s _init_vehicle_o);
 
 protected:
-    bool debug_mode = false;//debug mode
+    bool debug_mode = true;//debug mode
 
     //sets the problem
     WolfProblem* problem_;

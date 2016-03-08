@@ -210,6 +210,13 @@ void WolfGPSNode::process()
     T_map2ecef.setRotation(tf::Quaternion(rot.x(), rot.y(), rot.z(), rot.w()) * tf::createQuaternionFromYaw(gps_sensor_ptr_->getInitVehicleOPtr()->getVector()[0]));
     tfb_.sendTransform(tf::StampedTransform(T_map2ecef, loc_stamp, world_frame_name_, map_frame_name_));
 
+    //TF of the gps antenna respect to base frame
+    tfb_.sendTransform( tf::StampedTransform(tf::Transform(tf::Quaternion(0,0,0,1),
+                                                           tf::Vector3(gps_sensor_ptr_->getPPtr()->getVector()[0], gps_sensor_ptr_->getPPtr()->getVector()[1], gps_sensor_ptr_->getPPtr()->getVector()[2])),
+                                             ros::Time::now(),
+                                             base_frame_name_,
+                                             "gps_base"));
+
     /*
      * questa non credo sia da inviare!
      * devo inviare map to odom
@@ -268,34 +275,13 @@ void WolfGPSNode::operatorDebug(Eigen::Vector2s _vehicle_p, Eigen::Vector1s _veh
 //    std::cout << "|\tbias: " << _bias << std::endl;//intrinsic parameter  = receiver time bias
 //    std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n";
 
-    int marker_duration_ms = 5000;
 
-    visualization_msgs::Marker m;
-    m.header.frame_id = base_frame_name_;
-    m.header.stamp = ros::Time::now();
-    m.ns = "sensor_base";
-    m.id = 0;
-    m.type = visualization_msgs::Marker::CUBE;//SPHERE;
-    m.action = visualization_msgs::Marker::ADD;
-    // Pose of the marker.  This is a full 6DOF pose relative to the frame/time specified in the header
-    m.pose.position.x = _sensor_p[0];
-    m.pose.position.y = _sensor_p[1];
-    m.pose.position.z = _sensor_p[2];
-    m.pose.orientation.x = 0.0;
-    m.pose.orientation.y = 0.0;
-    m.pose.orientation.z = 0.0;
-    m.pose.orientation.w = 1.0;
-    m.scale.x =  m.scale.y = m.scale.z = 0.5;
-    m.color.r = 1.0f;
-    m.color.g = 0.0f;
-    m.color.b = 0.0f;
-    m.color.a = 0.5;
-    m.lifetime = ros::Duration(marker_duration_ms); //after tot seconds satellites are deleted
-    marker_pub_.publish(m);
+
 
     Eigen::Matrix<WolfScalar , 3, 1> sensor_p_base(_sensor_p[0], _sensor_p[1], _sensor_p[2]); //sensor position with respect to the base (the vehicle)
     Eigen::Matrix<WolfScalar, 3, 1> vehicle_p_map(_vehicle_p[0], _vehicle_p[1], 0);
     Eigen::Matrix<WolfScalar, 3, 1> init_vehicle_p(_init_vehicle_p[0], _init_vehicle_p[1], _init_vehicle_p[2]);
+
     /*
      * Base-to-map transform matrix
      */
@@ -310,120 +296,70 @@ void WolfGPSNode::operatorDebug(Eigen::Vector2s _vehicle_p, Eigen::Vector1s _veh
     std::cout << "1st trasform:  ";
     std::cout << "sensor_p_map: " << sensor_p_map[0] << ", " << sensor_p_map[1] << ", " << sensor_p_map[2] << std::endl;
 
+    tf::Transform T_sensor2map = tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(sensor_p_map[0], sensor_p_map[1], sensor_p_map[2]));
+    tfb_.sendTransform( tf::StampedTransform(T_sensor2map, ros::Time::now(), map_frame_name_, "gps_map"));
 
-    m.header.frame_id = map_frame_name_;
-    m.header.stamp = ros::Time::now();
-    m.ns = "sensor_map";
-    m.id = 1;
-    m.type = visualization_msgs::Marker::SPHERE;
-    m.action = visualization_msgs::Marker::ADD;
-    // Pose of the marker.  This is a full 6DOF pose relative to the frame/time specified in the header
-    m.pose.position.x = sensor_p_map[0];
-    m.pose.position.y = sensor_p_map[1];
-    m.pose.position.z = sensor_p_map[2];
-    m.pose.orientation.x = 0.0;
-    m.pose.orientation.y = 0.0;
-    m.pose.orientation.z = 0.0;
-    m.pose.orientation.w = 1.0;
-    m.scale.x =  m.scale.y = m.scale.z = 0.5;
-    m.color.r = 1.0f;
-    m.color.g = 1.0f;
-    m.color.b = 0.0f;
-    m.color.a = 0.5;
-    m.lifetime = ros::Duration(marker_duration_ms); //after tot seconds satellites are deleted
-    marker_pub_.publish(m);
+    /*
+     * _init_vehicle_p from ecef to lla
+     */
+    // WGS84 ellipsoid constants
+    WolfScalar a = WolfScalar(6378137); // earth's radius
+    WolfScalar e = WolfScalar(8.1819190842622e-2); // eccentricity
+    WolfScalar asq = a * a;
+    WolfScalar esq = e * e;
+    WolfScalar b = WolfScalar(sqrt(asq * (WolfScalar(1) - esq)));
+    WolfScalar bsq = WolfScalar(b * b);
+    WolfScalar ep = WolfScalar(sqrt((asq - bsq) / bsq));
+    WolfScalar p = WolfScalar(sqrt(_init_vehicle_p[0] * _init_vehicle_p[0] + _init_vehicle_p[1] * _init_vehicle_p[1]));
+    WolfScalar th = WolfScalar(atan2(a * _init_vehicle_p[2], b * p));
+    WolfScalar lon = WolfScalar(atan2(_init_vehicle_p[1], _init_vehicle_p[0]));
+    WolfScalar lat = WolfScalar(atan2((_init_vehicle_p[2] + ep * ep * b * pow(sin(th), 3)), (p - esq * a * pow(cos(th), 3))));
+    //        WolfScalar N = WolfScalar(a/( sqrt(WolfScalar(1)-esq*pow(sin(lat),2)) ));
+    //        WolfScalar alt = WolfScalar(p / cos(lat) - N);
+    // mod lat to 0-2pi
+    while (lon < WolfScalar(0))
+        lon += WolfScalar(2 * M_PI);
+    while (lon >= 2 * M_PI)
+        lon -= WolfScalar(2 * M_PI);
+    // correction for altitude near poles left out.
+
+    std::cout << "_init_vehicle_p: " << _init_vehicle_p[0] << ", " << _init_vehicle_p[1] << ", "
+        << _init_vehicle_p[2] << std::endl;
+        //        std::cout << "_init_vehicle_p LLA: " << lat << ", " << lon /*<< ", " << alt*/ << std::endl;
+        //        std::cout << "_init_vehicle_p LLA degrees: " << lat * WolfScalar(180 / M_PI) << ", " << lon * WolfScalar(180 / M_PI) /*<< ", " << alt*/ << std::endl;
+
+    /*
+     * map-to-ECEF transform matrix
+     */
+    Eigen::Matrix<WolfScalar, 3, 3> R1 = Eigen::Matrix<WolfScalar, 3, 3>::Identity();
+    R1(0, 0) = WolfScalar(cos(lon));
+    R1(0, 1) = WolfScalar(sin(lon));
+    R1(1, 0) = WolfScalar(-sin(lon));
+    R1(1, 1) = WolfScalar(cos(lon));
+    Eigen::Matrix<WolfScalar, 3, 3> R2 = Eigen::Matrix<WolfScalar, 3, 3>::Identity();
+    R2(0, 0) = WolfScalar(cos(lat));
+    R2(0, 2) = WolfScalar(sin(lat));
+    R2(2, 0) = WolfScalar(-sin(lat));
+    R2(2, 2) = WolfScalar(cos(lat));
+    Eigen::Matrix<WolfScalar, 3, 3> R3 = Eigen::Matrix<WolfScalar, 3, 3>::Zero();
+    R3(0, 1) = R3(1, 2) = R3(2, 0) = WolfScalar(1);
+    Eigen::Matrix<WolfScalar, 3, 3> R4 = Eigen::Matrix<WolfScalar, 3, 3>::Identity();
+    R4(0, 0) = WolfScalar(cos(_init_vehicle_o[0]));
+    R4(0, 1) = WolfScalar(sin(_init_vehicle_o[0]));
+    R4(1, 0) = WolfScalar(-sin(_init_vehicle_o[0]));
+    R4(1, 1) = WolfScalar(cos(_init_vehicle_o[0]));
+    Eigen::Matrix<WolfScalar, 3, 3> T_map2ecef = (R4 * R3 * R2 * R1).inverse();
+    /*
+     * result I want to find: sensor position with respect to ecef
+     */
+    Eigen::Matrix<WolfScalar, 3, 1> sensor_p_ecef; //sensor position with respect to ecef coordinate system
+    sensor_p_ecef = T_map2ecef * sensor_p_map + init_vehicle_p;
+    std::cout << "!!! sensor_p_ecef: " << sensor_p_ecef[0] << ", " << sensor_p_ecef[1] << ", " << sensor_p_ecef[2] << std::endl;
 
 
-//
-//
-//    /*
-//     * _init_vehicle_p from ecef to lla
-//     */
-//    // WGS84 ellipsoid constants
-//    WolfScalar a = WolfScalar(6378137); // earth's radius
-//    WolfScalar e = WolfScalar(8.1819190842622e-2); // eccentricity
-//    WolfScalar asq = a * a;
-//    WolfScalar esq = e * e;
-//    WolfScalar b = WolfScalar(sqrt(asq * (WolfScalar(1) - esq)));
-//    WolfScalar bsq = WolfScalar(b * b);
-//    WolfScalar ep = WolfScalar(sqrt((asq - bsq) / bsq));
-//    WolfScalar p = WolfScalar(sqrt(_init_vehicle_p[0] * _init_vehicle_p[0] + _init_vehicle_p[1] * _init_vehicle_p[1]));
-//    WolfScalar th = WolfScalar(atan2(a * _init_vehicle_p[2], b * p));
-//    WolfScalar lon = WolfScalar(atan2(_init_vehicle_p[1], _init_vehicle_p[0]));
-//    WolfScalar lat = WolfScalar(atan2((_init_vehicle_p[2] + ep * ep * b * pow(sin(th), 3)), (p - esq * a * pow(cos(th), 3))));
-//    //        WolfScalar N = WolfScalar(a/( sqrt(WolfScalar(1)-esq*pow(sin(lat),2)) ));
-//    //        WolfScalar alt = WolfScalar(p / cos(lat) - N);
-//    // mod lat to 0-2pi
-//    while (lon < WolfScalar(0))
-//        lon += WolfScalar(2 * M_PI);
-//    while (lon >= 2 * M_PI)
-//        lon -= WolfScalar(2 * M_PI);
-//    // correction for altitude near poles left out.
-//    if (verbose)
-//    {
-//        std::cout << "_init_vehicle_p: " << _init_vehicle_p[0] << ", " << _init_vehicle_p[1] << ", "
-//        << _init_vehicle_p[2] << std::endl;
-//        //        std::cout << "_init_vehicle_p LLA: " << lat << ", " << lon /*<< ", " << alt*/ << std::endl;
-//        //        std::cout << "_init_vehicle_p LLA degrees: " << lat * WolfScalar(180 / M_PI) << ", " << lon * WolfScalar(180 / M_PI) /*<< ", " << alt*/ << std::endl;
-//    }
-//    /*
-//     * map-to-ECEF transform matrix
-//     */
-//    Eigen::Matrix<WolfScalar, 3, 3> R1 = Eigen::Matrix<WolfScalar, 3, 3>::Identity();
-//    R1(0, 0) = WolfScalar(cos(lon));
-//    R1(0, 1) = WolfScalar(sin(lon));
-//    R1(1, 0) = WolfScalar(-sin(lon));
-//    R1(1, 1) = WolfScalar(cos(lon));
-//    Eigen::Matrix<WolfScalar, 3, 3> R2 = Eigen::Matrix<WolfScalar, 3, 3>::Identity();
-//    R2(0, 0) = WolfScalar(cos(lat));
-//    R2(0, 2) = WolfScalar(sin(lat));
-//    R2(2, 0) = WolfScalar(-sin(lat));
-//    R2(2, 2) = WolfScalar(cos(lat));
-//    Eigen::Matrix<WolfScalar, 3, 3> R3 = Eigen::Matrix<WolfScalar, 3, 3>::Zero();
-//    R3(0, 1) = R3(1, 2) = R3(2, 0) = WolfScalar(1);
-//    Eigen::Matrix<WolfScalar, 3, 3> R4 = Eigen::Matrix<WolfScalar, 3, 3>::Identity();
-//    R4(0, 0) = WolfScalar(cos(_init_vehicle_o[0]));
-//    R4(0, 1) = WolfScalar(sin(_init_vehicle_o[0]));
-//    R4(1, 0) = WolfScalar(-sin(_init_vehicle_o[0]));
-//    R4(1, 1) = WolfScalar(cos(_init_vehicle_o[0]));
-//    Eigen::Matrix<WolfScalar, 3, 3> T_map2ecef = (R4 * R3 * R2 * R1).inverse();
-//    /*
-//     * result I want to find: sensor position with respect to ecef
-//     */
-//    Eigen::Matrix<WolfScalar, 3, 1> sensor_p_ecef; //sensor position with respect to ecef coordinate system
-//    sensor_p_ecef = T_map2ecef * sensor_p_map + init_vehicle_p;
-//    if (verbose)
-//        std::cout << "!!! sensor_p_ecef: " << sensor_p_ecef[0] << ", " << sensor_p_ecef[1] << ", " << sensor_p_ecef[2]
-//        << std::endl;
-//
-//    //il codice qui sotto è quello vecchio, adattato in modo da usare la posizione del sensore rispetto a ecef, calcolata qui sopra
-//    WolfScalar square_sum = WolfScalar(0);
-//    for (int i = 0; i < 3; ++i)
-//    {
-//        square_sum += pow(sensor_p_ecef[i] - WolfScalar(sat_position_[i]), 2);
-//    }
-//    WolfScalar distance = (square_sum != WolfScalar(0)) ? sqrt(square_sum) : WolfScalar(0);
-//
-//    //     error = (expected measurement)       - (actual measurement)
-//    _residual[0] = (distance + _bias[0] * WolfScalar(LIGHT_SPEED)) - (pseudorange_);
-//
-//    if (verbose)
-//    {
-//        std::cout << "Residual: " << _residual[0] << "\n";
-//    }
-//    // normalizing by the covariance
-//    _residual[0] = _residual[0] / WolfScalar(getMeasurementCovariance()(0, 0));//WolfScalar(sqrt(getMeasurementCovariance()(0, 0)));
-//
-//
-//
-//    if (verbose)
-//    {
-//        //        std::cout << "Expected: " << (distance + _bias[0]*WolfScalar(LIGHT_SPEED)) << "\nreceived = " << pseudorange_ << "\n";
-//        std::cout << "Residual norm: " << _residual[0] << "\n";
-//
-//        std::cout << "------ END OPERATOR()------\n";
-//    }
 
+    tf::Transform T_sensor2world = tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(sensor_p_ecef[0], sensor_p_ecef[1], sensor_p_ecef[2]));
+    tfb_.sendTransform( tf::StampedTransform(T_sensor2world, ros::Time::now(), world_frame_name_, "gps_world"));
 
 }
 
