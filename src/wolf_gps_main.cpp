@@ -16,7 +16,7 @@ int main(int argc, char **argv)
     Eigen::Vector3s prior = Eigen::Vector3s(0, 0, 0);//prior pose of base in map
     int window_length = 8;
     double new_frame_elapsed_time = 1.0;
-    Eigen::Vector3s gps_sensor_p(-0.2, 0.55, 0.85);
+    Eigen::Vector3s gps_sensor_p(0.55, -0.2, 1.1);
     Eigen::Vector4s init_vehicle_pose(4789373, 177039, 4194527, 15.0*M_PI/180);//sidewalk near parking quimica
 
     Eigen::Vector2s odom_std(0.2, 0.2);
@@ -37,7 +37,6 @@ int main(int argc, char **argv)
             wgps->process();
         }
 
-        wgps->publish();// todo publish pose, broadcast tf and everything
 
         //relax to fit output rate
         loopRate.sleep();//TODO togli?

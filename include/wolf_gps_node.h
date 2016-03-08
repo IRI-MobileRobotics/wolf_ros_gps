@@ -66,15 +66,12 @@ public:
     void manageWindow();
 
     ros::Time getTimeLastProcess();
-    void publish();//TODO unused
 
     void operatorDebug(Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o,
                        Eigen::Vector3s _sensor_p, Eigen::Vector1s _bias,
                        Eigen::Vector3s _init_vehicle_p, Eigen::Vector1s _init_vehicle_o);
 
 protected:
-    bool debug_mode = true;//debug mode
-
     //sets the problem
     WolfProblem* problem_;
     FrameStructure frame_structure_;
@@ -109,6 +106,7 @@ protected:
     const std::string world_frame_name_ = "world";
     const std::string map_frame_name_ = "map";
     const std::string odom_frame_name_ = "teo_odom";
+    void publishTrajectory(bool verbose = true);
 
     //ceres
     int max_iterations_;
@@ -129,6 +127,11 @@ protected:
 
     // Publisher (markers)
     ros::Publisher marker_pub_;
+
+    // GPS fix callback
+    ros::Subscriber fix_ecef_sub_;
+    void fixEcefCallback(const iri_common_drivers_msgs::NavSatFix_ecef::ConstPtr &msg);
+    int fix_arrived_;
 
     ros::Time time_last_process_;
 

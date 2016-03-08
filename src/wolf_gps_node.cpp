@@ -58,6 +58,8 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
     odom_sub_ = nh_.subscribe("/teo/odomfused", 10, &WolfGPSNode::odometryCallback, this);
     gps_sub_ = nh_.subscribe("/sat_pseudoranges", 1000, &WolfGPSNode::gpsCallback, this);
     gps_data_arrived_ = 0;
+    fix_ecef_sub_ = nh_.subscribe("/teo/sensors/gps/gps_ecef", 1000, &WolfGPSNode::fixEcefCallback, this);
+    fix_arrived_ = 0;
 
     max_iterations_ = 1e4;
 
@@ -100,8 +102,6 @@ void WolfGPSNode::odometryCallback(const nav_msgs::Odometry::ConstPtr& msg)
                                      TimeStamp(msg->header.stamp.sec, msg->header.stamp.nsec),
                                      sensor_prior_,
                                      Eigen::Vector3s(msg->twist.twist.linear.x*dt, 0. ,msg->twist.twist.angular.z*dt)));
-        Eigen::Vector3s(msg->pose.pose.position.x, 0. ,tf::getYaw(msg->pose.pose.orientation));
-
     }
     last_odom_stamp_ = msg->header.stamp;
 }
@@ -210,12 +210,6 @@ void WolfGPSNode::process()
     T_map2ecef.setRotation(tf::Quaternion(rot.x(), rot.y(), rot.z(), rot.w()) * tf::createQuaternionFromYaw(gps_sensor_ptr_->getInitVehicleOPtr()->getVector()[0]));
     tfb_.sendTransform(tf::StampedTransform(T_map2ecef, loc_stamp, world_frame_name_, map_frame_name_));
 
-    //TF of the gps antenna respect to base frame
-    tfb_.sendTransform( tf::StampedTransform(tf::Transform(tf::Quaternion(0,0,0,1),
-                                                           tf::Vector3(gps_sensor_ptr_->getPPtr()->getVector()[0], gps_sensor_ptr_->getPPtr()->getVector()[1], gps_sensor_ptr_->getPPtr()->getVector()[2])),
-                                             ros::Time::now(),
-                                             base_frame_name_,
-                                             "gps_base"));
 
     /*
      * questa non credo sia da inviare!
@@ -232,23 +226,18 @@ void WolfGPSNode::process()
 
     // MARKERS VEHICLE & CONSTRAINTS
     // [...]
-    if(debug_mode)
-    {
-        operatorDebug(getVehiclePose().head(2), getVehiclePose().tail(1),
-                      gps_sensor_ptr_->getPPtr()->getVector(), gps_sensor_ptr_->getIntrinsicPtr()->getVector(),
-                      gps_sensor_ptr_->getInitVehiclePPtr()->getVector(),
-                      gps_sensor_ptr_->getInitVehicleOPtr()->getVector());
-    }
+
+//    operatorDebug(getVehiclePose().head(2), getVehiclePose().tail(1),
+//                      gps_sensor_ptr_->getPPtr()->getVector(), gps_sensor_ptr_->getIntrinsicPtr()->getVector(),
+//                      gps_sensor_ptr_->getInitVehiclePPtr()->getVector(),
+//                      gps_sensor_ptr_->getInitVehicleOPtr()->getVector());
+
     std::cout << std::setprecision(12);
     std::cout << "\n~~~~ RESULTS ~~~~\n";
     std::cout << "|\tinitial P: " << gps_sensor_ptr_->getInitVehiclePPtr()->getVector().transpose() << std::endl;// initial vehicle position (ecef)
     std::cout << "|\tinitial O: " << gps_sensor_ptr_->getInitVehicleOPtr()->getVector().transpose() << std::endl;// initial vehicle orientation (ecef)
     std::cout << "|\tVehicle Poses: " << getVehiclePose().transpose() << std::endl;// position of the vehicle's frame with respect to the initial pos frame
-    //To print all the previous frame
-    for (auto it : *(problem_->getTrajectoryPtr()->getFrameListPtr()))
-    {
-        std::cout << "|\tVehicle P: " << it->getPPtr()->getVector().transpose() << "\t| Vehicle O: " << it->getOPtr()->getVector().transpose() << std::endl;
-    }
+    publishTrajectory(false);
     std::cout << "|\tsensor P: " << gps_sensor_ptr_->getPPtr()->getVector().transpose() << std::endl;// position of the sensor with respect to the vehicle's frame
     //        std::cout << "|\tsensor O (not needed):" << gps_sensor_ptr_->getOPtr()->getVector().transpose() << std::endl;// orientation of antenna is not needed, because omnidirectional
     std::cout << "|\tbias: " << gps_sensor_ptr_->getIntrinsicPtr()->getVector().transpose() << std::endl;//intrinsic parameter  = receiver time bias
@@ -275,6 +264,12 @@ void WolfGPSNode::operatorDebug(Eigen::Vector2s _vehicle_p, Eigen::Vector1s _veh
 //    std::cout << "|\tbias: " << _bias << std::endl;//intrinsic parameter  = receiver time bias
 //    std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n";
 
+    //TF of the gps antenna respect to base frame
+    tfb_.sendTransform( tf::StampedTransform(tf::Transform(tf::Quaternion(0,0,0,1),
+                                                           tf::Vector3(_sensor_p[0], _sensor_p[1], _sensor_p[2])),
+                                             ros::Time::now(),
+                                             base_frame_name_,
+                                             "gps_base"));
 
 
 
@@ -537,7 +532,82 @@ ros::Time WolfGPSNode::getTimeLastProcess()
     return time_last_process_;
 }
 
-void WolfGPSNode::publish()
+void WolfGPSNode::publishTrajectory(bool verbose)
 {
-    //TODO
+
+    //To print all the previous frame
+    int i=0;
+    for (auto it : *(problem_->getTrajectoryPtr()->getFrameListPtr()))
+    {
+        if(verbose)
+            std::cout << "|\tVehicle P: " << it->getPPtr()->getVector().transpose() << "\t| Vehicle O: " << it->getOPtr()->getVector().transpose() << std::endl;
+
+        tf::Quaternion orientation = tf::createQuaternionFromYaw(it->getOPtr()->getVector()[0]);
+
+        visualization_msgs::Marker marker;
+        marker.header.frame_id = map_frame_name_;
+        marker.header.stamp = ros::Time::now();
+        marker.ns = "trajectory";
+        marker.id = i++;
+        marker.type = visualization_msgs::Marker::ARROW;
+        marker.action = visualization_msgs::Marker::ADD;
+        marker.pose.position.x = it->getPPtr()->getVector()[0];
+        marker.pose.position.y = it->getPPtr()->getVector()[1];
+        marker.pose.position.z = 0;
+        marker.pose.orientation.x = orientation.getX();
+        marker.pose.orientation.y = orientation.getY();
+        marker.pose.orientation.z = orientation.getZ();
+        marker.pose.orientation.w = orientation.getW();
+        marker.scale.x = 1;
+        marker.scale.y = 0.1;
+        marker.scale.z = 0.1;
+        marker.color.a = 1.0; // Don't forget to set the alpha!
+        marker.color.r = 0.0;
+        marker.color.g = 1.0;
+        marker.color.b = 0.0;
+        marker_pub_.publish( marker );
+
+    }
+}
+
+void WolfGPSNode::fixEcefCallback(const iri_common_drivers_msgs::NavSatFix_ecef::ConstPtr &msg)
+{
+//    std::cout << "%%%%  FIX " << fix_arrived_ << " ecef = (" << msg->x << ", " << msg->y << ", " << msg->z << ")\n";
+    fix_arrived_++;
+
+    if(fix_arrived_ % 5 == 0)
+    {
+        visualization_msgs::Marker m;
+        m.header.frame_id = world_frame_name_;
+        m.header.stamp = ros::Time::now();
+
+        m.ns = "gps_fix";
+        m.id = fix_arrived_;
+
+        m.type = visualization_msgs::Marker::SPHERE;
+        m.action = visualization_msgs::Marker::ADD;
+
+        // Pose of the marker.  This is a full 6DOF pose relative to the frame/time specified in the header
+        m.pose.position.x = msg->x;
+        m.pose.position.y = msg->y;
+        m.pose.position.z = msg->z;
+        m.pose.orientation.x = 0.0;
+        m.pose.orientation.y = 0.0;
+        m.pose.orientation.z = 0.0;
+        m.pose.orientation.w = 1.0;
+        m.scale.x =  m.scale.y = m.scale.z = 5;
+
+        m.color.r = 1.0f;
+        m.color.g = 0.0f;
+        m.color.b = 1.0f;
+        m.color.a = 0.5;
+        marker_pub_.publish(m);
+    }
+
+
+    tfb_.sendTransform( tf::StampedTransform(tf::Transform(tf::Quaternion(0,0,0,1),
+                                                           tf::Vector3(msg->x, msg->y, msg->z)),
+                                             ros::Time::now(),
+                                             world_frame_name_,
+                                             "gps_fix"));
 }
