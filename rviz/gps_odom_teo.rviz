@@ -7,6 +7,7 @@ Panels:
         - /Global Options1
         - /Grid1
         - /Marker1
+        - /Marker1/Status1
         - /TF1
         - /TF1/Frames1
       Splitter Ratio: 0.522059
@@ -56,8 +57,9 @@ Visualization Manager:
       Marker Topic: /wolf_gps_node/visualization_marker
       Name: Marker
       Namespaces:
-        {}
-      Queue Size: 100
+        gps_fix: true
+        trajectory: true
+      Queue Size: 1
       Value: true
     - Angle Tolerance: 0.1
       Class: rviz/Odometry
@@ -74,6 +76,14 @@ Visualization Manager:
       Frame Timeout: 30
       Frames:
         All Enabled: true
+        gps_base:
+          Value: true
+        gps_fix:
+          Value: true
+        gps_map:
+          Value: true
+        gps_world:
+          Value: true
         map:
           Value: true
         teo_base_footprint:
@@ -114,6 +124,8 @@ Visualization Manager:
       Tree:
         teo_odom:
           teo_base_footprint:
+            gps_base:
+              {}
             teo_base_link:
               teo_front_bumper:
                 {}
@@ -138,8 +150,13 @@ Visualization Manager:
               teo_wheel_fr:
                 {}
         world:
-          map:
+          gps_fix:
             {}
+          gps_world:
+            {}
+          map:
+            gps_map:
+              {}
       Update Interval: 0
       Value: true
   Enabled: true
@@ -166,22 +183,22 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/XYOrbit
-      Distance: 22.8849
+      Distance: 346.422
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -5.23222
-        Y: 5.72645
-        Z: 5.72205e-06
+        X: -41.7365
+        Y: -1.89739
+        Z: -9.4227e-06
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.745308
+      Pitch: 0.470308
       Target Frame: <Fixed Frame>
       Value: XYOrbit (rviz)
-      Yaw: 2.46682
+      Yaw: 2.67182
     Saved: ~
 Window Geometry:
   Displays:
@@ -199,5 +216,5 @@ Window Geometry:
   Views:
     collapsed: true
   Width: 813
-  X: 53
-  Y: 46
+  X: 44
+  Y: 12

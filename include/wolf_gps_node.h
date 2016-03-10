@@ -53,7 +53,7 @@ public:
                 const unsigned int& _trajectory_size,
                 const WolfScalar& _new_frame_elapsed_time,
                 const Eigen::Vector3s& _gps_sensor_p,
-                Eigen::Vector4s& _init_vehicle_pose,
+                Eigen::Vector4s& _map_pose,
                 Eigen::Vector2s& _odom_std);
     virtual ~WolfGPSNode();
 
@@ -67,9 +67,10 @@ public:
 
     ros::Time getTimeLastProcess();
 
-    void operatorDebug(Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o,
-                       Eigen::Vector3s _sensor_p, Eigen::Vector1s _bias,
-                       Eigen::Vector3s _init_vehicle_p, Eigen::Vector1s _init_vehicle_o);
+    void debugOperator2D(Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o,
+                         Eigen::Vector3s _sensor_p, Eigen::Vector1s _bias,
+                         Eigen::Vector3s _map_p, Eigen::Vector1s _map_o);
+    void publishTrajectory(bool verbose = true);
 
 protected:
     //sets the problem
@@ -106,7 +107,6 @@ protected:
     const std::string world_frame_name_ = "world";
     const std::string map_frame_name_ = "map";
     const std::string odom_frame_name_ = "teo_odom";
-    void publishTrajectory(bool verbose = true);
 
     //ceres
     int max_iterations_;

@@ -13,7 +13,10 @@
   <node pkg="wolf_ros_gps"
         type="wolf_gps_node"
         name="wolf_gps_node" 
-        output="screen"/>
+        output="screen">
+        <!--<remap from="/sat_pseudoranges" to="gasdrfwer"/>-->
+        <!--<remap from="/teo/odomfused" to="gasdrfwer"/>-->
+  </node>
 
 </launch>
 
