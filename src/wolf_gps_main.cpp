@@ -36,7 +36,7 @@ int main(int argc, char **argv)
         if((wgps->hasDataToProcess())&&(ros::Time::now() > wgps->getTimeLastProcess() + ros::Duration(1)))
         {
             wgps->process();
-            wgps->publishTrajectory();
+            wgps->publishTrajectory(true);
         }
 
         //relax to fit output rate

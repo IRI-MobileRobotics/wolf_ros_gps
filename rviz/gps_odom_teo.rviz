@@ -5,11 +5,7 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
-        - /Grid1
-        - /Marker1
-        - /Marker1/Status1
         - /TF1
-        - /TF1/Frames1
       Splitter Ratio: 0.522059
     Tree Height: 700
   - Class: rviz/Selection

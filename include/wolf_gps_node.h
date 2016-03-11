@@ -67,9 +67,6 @@ public:
 
     ros::Time getTimeLastProcess();
 
-    void debugOperator2D(Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o,
-                         Eigen::Vector3s _sensor_p, Eigen::Vector1s _bias,
-                         Eigen::Vector3s _map_p, Eigen::Vector1s _map_o);
     void publishTrajectory(bool verbose = true);
 
 protected:
@@ -107,6 +104,7 @@ protected:
     const std::string world_frame_name_ = "world";
     const std::string map_frame_name_ = "map";
     const std::string odom_frame_name_ = "teo_odom";
+    void publishWorld2MapTF(Eigen::Vector3s _map_p, Eigen::Vector1s _map_o, Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o, Eigen::Vector3s _sensor_p);
 
     //ceres
     int max_iterations_;
