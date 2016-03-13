@@ -268,10 +268,10 @@ void WolfGPSNode::publishWorld2MapTF(Eigen::Vector3s _map_p, Eigen::Vector1s _ma
     if (verbose_level_ >= 2)
         std::cout << "T_lat2lon\n" << T_lat2lon << std::endl << std::endl;
 
-    Eigen::Matrix<WolfScalar, 4, 4> T_enu2aux = Eigen::Matrix<WolfScalar, 4, 4>::Zero();
-    T_enu2aux(0, 2) = T_enu2aux(1, 0) = T_enu2aux(2, 1) = T_enu2aux(3, 3) = 1;
+    Eigen::Matrix<WolfScalar, 4, 4> T_enu2lat = Eigen::Matrix<WolfScalar, 4, 4>::Zero();
+    T_enu2lat(0, 2) = T_enu2lat(1, 0) = T_enu2lat(2, 1) = T_enu2lat(3, 3) = 1;
     if (verbose_level_ >= 2)
-        std::cout << "T_enu2aux\n" << T_enu2aux << std::endl << std::endl;
+        std::cout << "T_enu2lat\n" << T_enu2lat << std::endl << std::endl;
 
     Eigen::Matrix<WolfScalar, 4, 4> T_map2enu = Eigen::Matrix<WolfScalar, 4, 4>::Identity();
     T_map2enu(0, 0) = WolfScalar(cos(_map_o[0]));
@@ -282,7 +282,7 @@ void WolfGPSNode::publishWorld2MapTF(Eigen::Vector3s _map_p, Eigen::Vector1s _ma
         std::cout << "T_map2enu\n" << T_map2enu << std::endl << std::endl;
 
 
-    Eigen::Matrix<WolfScalar, 4, 4> T_map2ecef = T_trans *  T_lon2ecef * T_lat2lon * T_enu2aux * T_map2enu;
+    Eigen::Matrix<WolfScalar, 4, 4> T_map2ecef = T_trans *  T_lon2ecef * T_lat2lon * T_enu2lat * T_map2enu;
     if (verbose_level_ >= 2)
         std::cout << "---------T_map2ecef\n" << T_map2ecef << std::endl << std::endl;
 
