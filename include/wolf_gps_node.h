@@ -96,8 +96,9 @@ protected:
     //transforms
     tf::TransformBroadcaster tfb_;
     tf::TransformListener    tfl_;
-    tf::Transform T_base_map_;  //wolf output
-    tf::Transform T_base_odom_; //published by odom source
+    //TODO are this 3 things useful?
+//    tf::Transform T_base_map_;  //wolf output
+//    tf::Transform T_base_odom_; //published by odom source
     tf::Transform T_odom_map_;  //to be broadcasted by this node
     const std::string base_frame_name_ = "teo_base_footprint";
     const std::string gps_frame_name_ = "gps_asterx1";

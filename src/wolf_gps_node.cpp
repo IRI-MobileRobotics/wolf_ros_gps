@@ -142,6 +142,7 @@ void WolfGPSNode::process()
 
 //TODO replace all with Eigen::Matrix4s
 
+//TODO see if is better to use 3x3 matrixes
 void WolfGPSNode::broadcastTfMapOdom(Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o)
 {
     /*
@@ -191,22 +192,23 @@ void WolfGPSNode::broadcastTfMapOdom(Eigen::Vector2s _vehicle_p, Eigen::Vector1s
 //    /*
 //     * old code. I'm not sure that it worked
 //     */
-//    //Get base_map from Wolf result, and builds map_base pose
-//    tf::Pose base_map; //base wrt map
-//    base_map.setOrigin( tf::Vector3(vehicle_pose(0), vehicle_pose(1), 0) );
-//    base_map.setRotation( tf::createQuaternionFromYaw(vehicle_pose(2)) );
+//    //Get map2base from Wolf result, and builds base2map pose
+//    tf::Pose map2base; //base wrt map
+//    map2base.setOrigin( tf::Vector3(vehicle_pose(0), vehicle_pose(1), 0) );
+//    map2base.setRotation( tf::createQuaternionFromYaw(vehicle_pose(2)) );
 //
-//    //map_base: invert base_map to get map_base (map wrt base), and stamp it
-//    tf::Stamped<tf::Pose> map_base(base_map.inverse(), ros::Time::now(), base_frame_name_);
-//    //gets map_odom (map wrt odom), by using tf listener, and assuming an odometry node is broadcasting base_odom
-//    tf::Stamped<tf::Pose> map_odom;
+//    //base2map: invert map2base to get base2map (map wrt base), and stamp it
+//    tf::Stamped<tf::Pose> base2map(map2base.inverse(), ros::Time::now(), base_frame_name_);
+//
+//    //gets odom2map (map wrt odom), by using tf listener, and assuming an odometry node is broadcasting base_odom
+//    tf::Stamped<tf::Pose> odom2map;
 //    if ( tfl_.waitForTransform(odom_frame_name_, base_frame_name_, ros::Time::now(), ros::Duration(1)) )
 //    {
-//        //gets map_odom
-//        tfl_.transformPose(odom_frame_name_, map_base, map_odom);
+//        //gets odom2map
+//        tfl_.transformPose(odom_frame_name_, base2map, odom2map);
 //
-//        //broadcast odom_map = map_odom.inverse()
-//        tfb_.sendTransform( tf::StampedTransform(map_odom.inverse(), ros::Time::now(), map_frame_name_, odom_frame_name_) );
+//        //broadcast map2odom = odom2map.inverse()
+//        tfb_.sendTransform( tf::StampedTransform(odom2map.inverse(), ros::Time::now(), map_frame_name_, odom_frame_name_) );
 //    }
 //    else
 //        ROS_WARN_STREAM("No odom_to_base frame received: "<< odom_frame_name_<<" " << base_frame_name_);
