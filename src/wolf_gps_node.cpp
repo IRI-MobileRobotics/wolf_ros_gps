@@ -110,74 +110,13 @@ void WolfGPSNode::process()
 
     // Sets localization timestamp & Gets wolf localization estimate
     time_last_process_ = ros::Time::now();
-    Eigen::VectorXs vehicle_pose  = getVehiclePose();
+    Eigen::Vector3s vehicle_pose  = getVehiclePose();
 
-    /*
-     * TODO check this part!!!
-     * TODO check this part!!!
-     */
+
     // Broadcast transforms ---------------------------------------------------------------------------
-    publishWorld2MapTF(gps_sensor_ptr_->getMapPPtr()->getVector(), gps_sensor_ptr_->getMapOPtr()->getVector(),
-                       getVehiclePose().head(2), getVehiclePose().tail(1),
-                       gps_sensor_ptr_->getPPtr()->getVector());
-
-
-//    Eigen::Matrix4s T_map_base = Eigen::Matrix4s::Identity();
-//    T_map_base(0, 0) = cos(vehicle_pose(2));
-//    T_map_base(0, 1) = -sin(vehicle_pose(2));
-//    T_map_base(1, 0) = sin(vehicle_pose(2));
-//    T_map_base(1, 1) = cos(vehicle_pose(2));
-//    T_map_base(0, 3) = vehicle_pose(0);
-//    T_map_base(1, 3) = vehicle_pose(1);
-//
-//    //TODO add try catch
-//    tf::StampedTransform Tf_odom_base;
-//    tfl_.lookupTransform(odom_frame_name_, base_frame_name_, ros::Time(0), Tf_odom_base);
-//
-//    Eigen::Matrix4s T_odom_base;
-//
-//    //this is the 3x3 rotation
-//    Tf_odom_base.getBasis()
-//    Tf_odom_base.getOrigin() on  column 3
-//    T_odom_base eigen object
-//
-//
-//    Eigen::Matrix4s T_map_odom = T_map_base * T_odom_base.inverse();
-//
-//    broadcast T_map_odom
-//
-
-    /*
-     * old code
-     */
-    //Get base_map from Wolf result, and builds map_base pose
-    tf::Pose base_map; //base wrt map
-    base_map.setOrigin( tf::Vector3(vehicle_pose(0), vehicle_pose(1), 0) );
-    base_map.setRotation( tf::createQuaternionFromYaw(vehicle_pose(2)) );
-
-    //map_base: invert base_map to get map_base (map wrt base), and stamp it
-    tf::Stamped<tf::Pose> map_base(base_map.inverse(), ros::Time::now(), base_frame_name_);
-
-    /*
-     * TODO check this part!!!
-     * TODO check this part!!!
-     * TODO check this part!!!
-     * TODO check this part!!!
-     * TODO check this part!!!
-     */
-    //gets map_odom (map wrt odom), by using tf listener, and assuming an odometry node is broadcasting base_odom
-    tf::Stamped<tf::Pose> map_odom;
-    if ( tfl_.waitForTransform(odom_frame_name_, base_frame_name_, ros::Time::now(), ros::Duration(1)) )
-    {
-        //gets map_odom
-        tfl_.transformPose(odom_frame_name_, map_base, map_odom);
-
-        //broadcast odom_map = map_odom.inverse()
-        tfb_.sendTransform( tf::StampedTransform(map_odom.inverse(), ros::Time::now(), map_frame_name_, odom_frame_name_) );
-    }
-    else
-        ROS_WARN_STREAM("No odom_to_base frame received: "<< odom_frame_name_<<" " << base_frame_name_);
-
+    // TODO check transform!
+    broadcastTfWorldMap(gps_sensor_ptr_->getMapPPtr()->getVector(), gps_sensor_ptr_->getMapOPtr()->getVector(), getVehiclePose().head(2), getVehiclePose().tail(1), gps_sensor_ptr_->getPPtr()->getVector());
+    broadcastTfMapOdom(vehicle_pose.head(2), vehicle_pose.tail(1));
 
     //End Broadcast transform -----------------------------------------------------------------------------
     // [fill msg structures]
@@ -190,7 +129,7 @@ void WolfGPSNode::process()
     std::cout << "\n~~~~ RESULTS ~~~~\n";
     std::cout << "|\tmap P: " << gps_sensor_ptr_->getMapPPtr()->getVector().transpose() << std::endl;// map position wrt (ecef)
     std::cout << "|\tmap O: " << gps_sensor_ptr_->getMapOPtr()->getVector().transpose() << std::endl;// map orientation wrt (ecef)
-    std::cout << "|\tVehicle Pose: " << getVehiclePose().transpose() << std::endl;// position of the vehicle's frame with respect to the initial pos frame
+    std::cout << "|\tVehicle Pose: " << vehicle_pose.transpose() << std::endl;// position of the vehicle's frame with respect to the initial pos frame
     //publishTrajectory(false); (now is in main)
     std::cout << "|\tsensor P: " << gps_sensor_ptr_->getPPtr()->getVector().transpose() << std::endl;// position of the sensor with respect to the vehicle's frame
     //        std::cout << "|\tsensor O (not needed):" << gps_sensor_ptr_->getOPtr()->getVector().transpose() << std::endl;// orientation of antenna is not needed, because omnidirectional
@@ -200,10 +139,85 @@ void WolfGPSNode::process()
 
 
 }
+
+//TODO replace all with Eigen::Matrix4s
+
+void WolfGPSNode::broadcastTfMapOdom(Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o)
+{
+    /*
+     *  Pose of base wrt map
+     */
+    Eigen::Matrix4s T_map_base = Eigen::Matrix4s::Identity();
+    T_map_base(0, 0) = cos(_vehicle_o(0));
+    T_map_base(0, 1) = -sin(_vehicle_o(0));
+    T_map_base(1, 0) = sin(_vehicle_o(0));
+    T_map_base(1, 1) = cos(_vehicle_o(0));
+    T_map_base(0, 3) = _vehicle_p(0);
+    T_map_base(1, 3) = _vehicle_p(1);
+
+    /*
+     * Pose of base wrt odom. assumes that it's broadcasted by an odometry node
+     */
+    //TODO it's really needed to go to Eigen and then come back to tf? why not multiply directly tf matrixes?
+    tf::StampedTransform Tf_odom_base;
+    tfl_.lookupTransform(odom_frame_name_, base_frame_name_, ros::Time(0), Tf_odom_base);
+    //fill an Eigen matrix
+    Eigen::Matrix4s T_odom_base = Eigen::Matrix4s::Identity();
+    tf::Matrix3x3 Tf_odom_base_basis = Tf_odom_base.getBasis();//this is the 3x3 rotation matrix
+    for (int i = 0; i < 3; ++i)
+        for (int j = 0; j < 3; ++j)
+            T_odom_base(i, j) = Tf_odom_base_basis[i][j];
+    T_odom_base(0, 3) = Tf_odom_base.getOrigin().getX();
+    T_odom_base(1, 3) = Tf_odom_base.getOrigin().getY();
+    T_odom_base(2, 3) = Tf_odom_base.getOrigin().getZ();
+
+    /*
+     * Compute odom wrt map
+     */
+    Eigen::Matrix4s T_map_odom = T_map_base * T_odom_base.inverse();
+
+    /*
+     * Broadcast a Tf transform T_map_odom
+     */
+    tf::Transform Tf_map_odom;
+    Tf_map_odom.setOrigin( tf::Vector3(T_map_odom(0, 3), T_map_odom(1, 3), T_map_odom(2, 3)) );
+    tf::Matrix3x3 Tf_map_odom_basis = Tf_odom_base.getBasis();
+    for (int i = 0; i < 3; ++i)
+        for (int j = 0; j < 3; ++j)
+            Tf_map_odom_basis[i][j] = T_map_odom(i, j);
+    Tf_map_odom.setBasis(Tf_map_odom_basis); //This is the rotation
+    tfb_.sendTransform(tf::StampedTransform(Tf_map_odom, ros::Time::now(), map_frame_name_, odom_frame_name_));
+
+//    /*
+//     * old code. I'm not sure that it worked
+//     */
+//    //Get base_map from Wolf result, and builds map_base pose
+//    tf::Pose base_map; //base wrt map
+//    base_map.setOrigin( tf::Vector3(vehicle_pose(0), vehicle_pose(1), 0) );
+//    base_map.setRotation( tf::createQuaternionFromYaw(vehicle_pose(2)) );
+//
+//    //map_base: invert base_map to get map_base (map wrt base), and stamp it
+//    tf::Stamped<tf::Pose> map_base(base_map.inverse(), ros::Time::now(), base_frame_name_);
+//    //gets map_odom (map wrt odom), by using tf listener, and assuming an odometry node is broadcasting base_odom
+//    tf::Stamped<tf::Pose> map_odom;
+//    if ( tfl_.waitForTransform(odom_frame_name_, base_frame_name_, ros::Time::now(), ros::Duration(1)) )
+//    {
+//        //gets map_odom
+//        tfl_.transformPose(odom_frame_name_, map_base, map_odom);
+//
+//        //broadcast odom_map = map_odom.inverse()
+//        tfb_.sendTransform( tf::StampedTransform(map_odom.inverse(), ros::Time::now(), map_frame_name_, odom_frame_name_) );
+//    }
+//    else
+//        ROS_WARN_STREAM("No odom_to_base frame received: "<< odom_frame_name_<<" " << base_frame_name_);
+
+}
+
+
 /*
  * calculate translation of map frame
  */
-void WolfGPSNode::publishWorld2MapTF(Eigen::Vector3s _map_p, Eigen::Vector1s _map_o, Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o, Eigen::Vector3s _sensor_p)
+void WolfGPSNode::broadcastTfWorldMap(Eigen::Vector3s _map_p, Eigen::Vector1s _map_o, Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o, Eigen::Vector3s _sensor_p)
 {
     int verbose_level_ = 0;
     bool tf_gps_wrt_other_frames = false; //true only for debug
