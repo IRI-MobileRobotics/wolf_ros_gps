@@ -50,8 +50,8 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
     // [init publishers]
     // Broadcast 0 transform to align frames initially
 
-    T_map2odom_ = tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(0, 0, 0));
-    tfb_.sendTransform( tf::StampedTransform(T_map2odom_, ros::Time::now(), map_frame_name_, odom_frame_name_));
+    T_odom_map_ = tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(0, 0, 0));
+    tfb_.sendTransform( tf::StampedTransform(T_odom_map_, ros::Time::now(), map_frame_name_, odom_frame_name_));
 
 
     // [init subscribers]
@@ -123,13 +123,13 @@ void WolfGPSNode::process()
                        getVehiclePose().head(2), getVehiclePose().tail(1),
                        gps_sensor_ptr_->getPPtr()->getVector());
 
-    //Get map2base from Wolf result, and builds base2map pose
-    tf::Pose map2base;
-    map2base.setOrigin( tf::Vector3(vehicle_pose(0), vehicle_pose(1), 0) );
-    map2base.setRotation( tf::createQuaternionFromYaw(vehicle_pose(2)) );
+    //Get base_map from Wolf result, and builds map_base pose
+    tf::Pose base_map;
+    base_map.setOrigin( tf::Vector3(vehicle_pose(0), vehicle_pose(1), 0) );
+    base_map.setRotation( tf::createQuaternionFromYaw(vehicle_pose(2)) );
 
-    //base2map: invert map2base to get base2map (map wrt base), and stamp it
-    tf::Stamped<tf::Pose> base2map(map2base.inverse(), ros::Time::now(), base_frame_name_);
+    //map_base: invert base_map to get map_base (map wrt base), and stamp it
+    tf::Stamped<tf::Pose> map_base(base_map.inverse(), ros::Time::now(), base_frame_name_);
 
     /*
      * TODO check this part!!!
@@ -138,15 +138,15 @@ void WolfGPSNode::process()
      * TODO check this part!!!
      * TODO check this part!!!
      */
-    //gets odom2map (map wrt odom), by using tf listener, and assuming an odometry node is broadcasting odom2base
-    tf::Stamped<tf::Pose> odom2map;
+    //gets map_odom (map wrt odom), by using tf listener, and assuming an odometry node is broadcasting base_odom
+    tf::Stamped<tf::Pose> map_odom;
     if ( tfl_.waitForTransform(odom_frame_name_, base_frame_name_, ros::Time::now(), ros::Duration(1)) )
     {
-        //gets odom2map
-        tfl_.transformPose(odom_frame_name_, base2map, odom2map);
+        //gets map_odom
+        tfl_.transformPose(odom_frame_name_, map_base, map_odom);
 
-        //broadcast map2odom = odom2map.inverse()
-        tfb_.sendTransform( tf::StampedTransform(odom2map.inverse(), ros::Time::now(), map_frame_name_, odom_frame_name_) );
+        //broadcast odom_map = map_odom.inverse()
+        tfb_.sendTransform( tf::StampedTransform(map_odom.inverse(), ros::Time::now(), map_frame_name_, odom_frame_name_) );
     }
     else
         ROS_WARN_STREAM("No odom_to_base frame received: "<< odom_frame_name_<<" " << base_frame_name_);
@@ -400,10 +400,7 @@ void WolfGPSNode::createFrame(const Eigen::VectorXs& _frame_state, const TimeSta
     last_key_frame_ = current_frame_;
 
     // ---------------------- CREATE NEW FRAME ---------------------
-    problem_->getTrajectoryPtr()->addFrame(new FrameBase(_time_stamp,
-                                           new StateBlock(_frame_state.head(2)),
-                                           new StateBlock(_frame_state.tail(1))));
-
+    problem_->getTrajectoryPtr()->addFrame(new FrameBase(_time_stamp, new StateBlock(_frame_state.head(2)), new StateBlock(_frame_state.tail(1))));
     //std::cout << "frame created" << std::endl;
 
     // Store new current frame
