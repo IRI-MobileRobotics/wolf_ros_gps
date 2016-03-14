@@ -16,9 +16,13 @@ int main(int argc, char **argv)
     Eigen::Vector3s prior = Eigen::Vector3s(0, 0, 0);//prior pose of base in map
     int window_length = 8;
     double new_frame_elapsed_time = 1.0;
+    // BUONO LUNGO
     Eigen::Vector3s gps_sensor_p(0.55, -0.2, 1.1);
-    //TODO now MapO is from east!
-    Eigen::Vector4s map_pose(4789373, 177039, 4194527, 15.0*M_PI/180);//sidewalk near parking quimica
+    Eigen::Vector4s map_pose(4789373, 177039, 4194527, 195.0*M_PI/180);//sidewalk near parking quimica
+
+//    //BUONO CORTO
+//    Eigen::Vector3s gps_sensor_p(0.55, -0.2, 1.1);
+//    Eigen::Vector4s map_pose(4789400.30058, 176969.115645, 4194497.87659, (195.0-170.0+45)*M_PI/180);//sidewalk near parking quimica
 
     Eigen::Vector2s odom_std(0.2, 0.2);
 

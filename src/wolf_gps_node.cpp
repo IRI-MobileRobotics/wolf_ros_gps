@@ -107,8 +107,6 @@ void WolfGPSNode::process()
     //std::cout << (use_auto_diff_wrapper_ ? "AUTO DIFF WRAPPER" : "CERES AUTO DIFF") << std::endl;
 //    std::cout << summary.FullReport() << std::endl;
     std::cout << summary.BriefReport() << std::endl;
-    //ceres_manager_->computeCovariances(); //TODO if uncommented, crash. tell Joan
-    //std::cout << "covariances computed" << std::endl;
 
     // Sets localization timestamp & Gets wolf localization estimate
     time_last_process_ = ros::Time::now();
@@ -123,8 +121,37 @@ void WolfGPSNode::process()
                        getVehiclePose().head(2), getVehiclePose().tail(1),
                        gps_sensor_ptr_->getPPtr()->getVector());
 
+
+//    Eigen::Matrix4s T_map_base = Eigen::Matrix4s::Identity();
+//    T_map_base(0, 0) = cos(vehicle_pose(2));
+//    T_map_base(0, 1) = -sin(vehicle_pose(2));
+//    T_map_base(1, 0) = sin(vehicle_pose(2));
+//    T_map_base(1, 1) = cos(vehicle_pose(2));
+//    T_map_base(0, 3) = vehicle_pose(0);
+//    T_map_base(1, 3) = vehicle_pose(1);
+//
+//    //TODO add try catch
+//    tf::StampedTransform Tf_odom_base;
+//    tfl_.lookupTransform(odom_frame_name_, base_frame_name_, ros::Time(0), Tf_odom_base);
+//
+//    Eigen::Matrix4s T_odom_base;
+//
+//    //this is the 3x3 rotation
+//    Tf_odom_base.getBasis()
+//    Tf_odom_base.getOrigin() on  column 3
+//    T_odom_base eigen object
+//
+//
+//    Eigen::Matrix4s T_map_odom = T_map_base * T_odom_base.inverse();
+//
+//    broadcast T_map_odom
+//
+
+    /*
+     * old code
+     */
     //Get base_map from Wolf result, and builds map_base pose
-    tf::Pose base_map;
+    tf::Pose base_map; //base wrt map
     base_map.setOrigin( tf::Vector3(vehicle_pose(0), vehicle_pose(1), 0) );
     base_map.setRotation( tf::createQuaternionFromYaw(vehicle_pose(2)) );
 
@@ -179,7 +206,7 @@ void WolfGPSNode::process()
 void WolfGPSNode::publishWorld2MapTF(Eigen::Vector3s _map_p, Eigen::Vector1s _map_o, Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o, Eigen::Vector3s _sensor_p)
 {
     int verbose_level_ = 0;
-    bool tf_gps_wrt_other_frames = true; //true only for debug
+    bool tf_gps_wrt_other_frames = false; //true only for debug
 
     std::cout << std::setprecision(12);
     if (verbose_level_ >= 1)
@@ -350,14 +377,9 @@ void WolfGPSNode::gpsCallback(const iri_common_drivers_msgs::SatellitePseudorang
         obs.time_gps_tow_ = msg->time_gps_tow;
         for (int i = 0; i < msg->measurements.size(); ++i)
         {
-            rawgpsutils::PrMeasurement sat(msg->measurements[i].sat_id,
-                                           msg->measurements[i].pseudorange,
-                                           msg->measurements[i].x,
-                                           msg->measurements[i].y,
-                                           msg->measurements[i].z,
-                                           msg->measurements[i].v_x,
-                                           msg->measurements[i].v_y,
-                                           msg->measurements[i].v_z);
+            rawgpsutils::PrMeasurement sat(msg->measurements[i].sat_id, msg->measurements[i].pseudorange,
+                                           msg->measurements[i].x, msg->measurements[i].y, msg->measurements[i].z,
+                                           msg->measurements[i].v_x, msg->measurements[i].v_y, msg->measurements[i].v_z);
 
             obs.measurements_.push_back(sat);
         }
@@ -371,12 +393,13 @@ void WolfGPSNode::gpsCallback(const iri_common_drivers_msgs::SatellitePseudorang
     }
 }
 
+
 Eigen::VectorXs WolfGPSNode::getVehiclePose(const TimeStamp& _now)
 {
     if (last_capture_relative_ == nullptr && last_key_frame_ != nullptr)
-        return Eigen::Map<Eigen::Vector3s>(last_key_frame_->getPPtr()->getPtr());
+        return last_key_frame_->getState();
     else if (last_capture_relative_ == nullptr)
-        return Eigen::Map<Eigen::Vector3s>(current_frame_->getPPtr()->getPtr());
+        return current_frame_->getState();
     else
         return last_capture_relative_->computeFramePose(_now);
 }
@@ -590,6 +613,9 @@ void WolfGPSNode::fixEcefCallback(const iri_common_drivers_msgs::NavSatFix_ecef:
 {
     fix_arrived_++;
 
+    // broadcast TF of last fix received
+    tfb_.sendTransform( tf::StampedTransform(tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(msg->x, msg->y, msg->z)),ros::Time::now(),world_frame_name_,"gps_fix"));
+
 //    if(fix_arrived_ % 5 == 0)     std::cout << "%%%%  FIX:  = (" << std::setprecision(12) << msg->x << ", " << msg->y << ", " << msg->z << ")\n";
 
     visualization_msgs::Marker m;
@@ -617,8 +643,4 @@ void WolfGPSNode::fixEcefCallback(const iri_common_drivers_msgs::NavSatFix_ecef:
     m.color.b = 1.0f;
     m.color.a = 0.4;
     marker_pub_.publish(m);
-
-    // broadcast TF of last fix received
-    tfb_.sendTransform( tf::StampedTransform(tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(msg->x, msg->y, msg->z)),ros::Time::now(),world_frame_name_,"gps_fix"));
-
 }
