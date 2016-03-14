@@ -61,7 +61,7 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
     fix_ecef_sub_ = nh_.subscribe("/teo/sensors/gps/gps_ecef", 1000, &WolfGPSNode::fixEcefCallback, this);
     fix_arrived_ = 0;
 
-    max_iterations_ = 1;//1e4;
+    max_iterations_ = 1e4;
 
     use_auto_diff_wrapper_ = false;
     apply_loss_function_ = false;
@@ -86,7 +86,7 @@ WolfGPSNode::~WolfGPSNode()
     std::cout << std::endl << " ========= WolfGPSNode DESTRUCTOR (should not crash) =============" << std::endl;
     problem_->destruct();
 
-    //TODO check if is correct to put this here
+    //TODO check if it is correct to put this here
     std::cout << std::endl << " ========= destroying ceres manager (now seg fault) =============" << std::endl;
     delete ceres_manager_;
 }
@@ -94,37 +94,42 @@ WolfGPSNode::~WolfGPSNode()
 
 void WolfGPSNode::process()
 {
-    ROS_INFO("================== PROCESSING.\t\t(%i gps obs discarded)", gps_data_arrived_);
+    ROS_INFO("================ PROCESSING.\t(%i gps obs discarded)", gps_data_arrived_);
     gps_data_arrived_ = 0;
-    time_last_process_ = ros::Time::now();
+    ros::Time local_stamp = ros::Time::now();
 
     //solve problem
     //std::cout << "wolf updated" << std::endl;
     ceres_manager_->update(use_auto_diff_wrapper_, apply_loss_function_);
     //std::cout << "ceres updated" << std::endl;
     ceres::Solver::Summary summary = ceres_manager_->solve(ceres_options_);
-    //std::cout << "------------------------- SOLVED -------------------------" << std::endl;
+    std::cout << "------------------------- SOLVED -------------------------" << std::endl;
     //std::cout << (use_auto_diff_wrapper_ ? "AUTO DIFF WRAPPER" : "CERES AUTO DIFF") << std::endl;
-    //std::cout << summary.FullReport() << std::endl;
-    //std::cout << summary.BriefReport() << std::endl;
-    //TODO now i use covariance!!
-//    ceres_manager_->computeCovariances();
+//    std::cout << summary.FullReport() << std::endl;
+    std::cout << summary.BriefReport() << std::endl;
+    //ceres_manager_->computeCovariances(); //TODO if uncommented, crash. tell Joan
     //std::cout << "covariances computed" << std::endl;
 
     // Sets localization timestamp & Gets wolf localization estimate
-    ros::Time loc_stamp = time_last_process_;//ros::Time::now();
+    time_last_process_ = ros::Time::now();
     Eigen::VectorXs vehicle_pose  = getVehiclePose();
 
+    /*
+     * TODO check this part!!!
+     * TODO check this part!!!
+     */
     // Broadcast transforms ---------------------------------------------------------------------------
+    publishWorld2MapTF(gps_sensor_ptr_->getMapPPtr()->getVector(), gps_sensor_ptr_->getMapOPtr()->getVector(),
+                       getVehiclePose().head(2), getVehiclePose().tail(1),
+                       gps_sensor_ptr_->getPPtr()->getVector());
+
     //Get map2base from Wolf result, and builds base2map pose
     tf::Pose map2base;
     map2base.setOrigin( tf::Vector3(vehicle_pose(0), vehicle_pose(1), 0) );
     map2base.setRotation( tf::createQuaternionFromYaw(vehicle_pose(2)) );
 
-
     //base2map: invert map2base to get base2map (map wrt base), and stamp it
     tf::Stamped<tf::Pose> base2map(map2base.inverse(), ros::Time::now(), base_frame_name_);
-
 
     /*
      * TODO check this part!!!
@@ -145,11 +150,6 @@ void WolfGPSNode::process()
     }
     else
         ROS_WARN_STREAM("No odom_to_base frame received: "<< odom_frame_name_<<" " << base_frame_name_);
-
-
-    publishWorld2MapTF(gps_sensor_ptr_->getMapPPtr()->getVector(), gps_sensor_ptr_->getMapOPtr()->getVector(),
-                      getVehiclePose().head(2), getVehiclePose().tail(1),
-                      gps_sensor_ptr_->getPPtr()->getVector());
 
 
     //End Broadcast transform -----------------------------------------------------------------------------
@@ -175,13 +175,11 @@ void WolfGPSNode::process()
 }
 /*
  * calculate translation of map frame
- *
- *
- * TODO check again!! is not perpendicular to the world
  */
 void WolfGPSNode::publishWorld2MapTF(Eigen::Vector3s _map_p, Eigen::Vector1s _map_o, Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o, Eigen::Vector3s _sensor_p)
 {
-    int verbose_level_ = 2;
+    int verbose_level_ = 0;
+    bool tf_gps_wrt_other_frames = true; //true only for debug
 
     std::cout << std::setprecision(12);
     if (verbose_level_ >= 1)
@@ -194,29 +192,30 @@ void WolfGPSNode::publishWorld2MapTF(Eigen::Vector3s _map_p, Eigen::Vector1s _ma
     }
 
     // broadcast TF of gps wrt base
-    tfb_.sendTransform( tf::StampedTransform(tf::Transform(tf::Quaternion(0,0,0,1),tf::Vector3(_sensor_p[0], _sensor_p[1], _sensor_p[2])),ros::Time::now(),base_frame_name_,"gps_base"));
+    tfb_.sendTransform(tf::StampedTransform(tf::Transform(tf::Quaternion(0,0,0,1),tf::Vector3(_sensor_p[0], _sensor_p[1], _sensor_p[2])),ros::Time::now(),base_frame_name_,gps_frame_name_));
 
     Eigen::Matrix<WolfScalar, 4, 1> sensor_p_base(_sensor_p[0], _sensor_p[1], _sensor_p[2], WolfScalar(1)); //sensor position wrt base (the vehicle)
     /*
      * Base-to-map transform matrix
      */
-    Eigen::Matrix<WolfScalar, 4, 4> T_base2map = Eigen::Matrix<WolfScalar, 4, 4>::Identity();
-    T_base2map(0, 0) = cos(_vehicle_o[0]);
-    T_base2map(0, 1) = -sin(_vehicle_o[0]);
-    T_base2map(1, 0) = sin(_vehicle_o[0]);
-    T_base2map(1, 1) = cos(_vehicle_o[0]);
-    T_base2map(0, 3) = _vehicle_p[0];
-    T_base2map(1, 3) = _vehicle_p[1];
+    Eigen::Matrix<WolfScalar, 4, 4> T_map_base = Eigen::Matrix<WolfScalar, 4, 4>::Identity();
+    T_map_base(0, 0) = cos(_vehicle_o[0]);
+    T_map_base(0, 1) = -sin(_vehicle_o[0]);
+    T_map_base(1, 0) = sin(_vehicle_o[0]);
+    T_map_base(1, 1) = cos(_vehicle_o[0]);
+    T_map_base(0, 3) = _vehicle_p[0];
+    T_map_base(1, 3) = _vehicle_p[1];
 
     // sensor position with respect to map frame
-    Eigen::Matrix<WolfScalar, 4, 1> sensor_p_map = T_base2map * sensor_p_base;
+    Eigen::Matrix<WolfScalar, 4, 1> sensor_p_map = T_map_base * sensor_p_base;
 
     if (verbose_level_ >= 1)
         std::cout << "!!! sensor_p_map: " << sensor_p_map.transpose() << std::endl;
 
 
     // broadcast TF of gps wrt map
-    tfb_.sendTransform( tf::StampedTransform(tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(sensor_p_map[0], sensor_p_map[1], sensor_p_map[2])), ros::Time::now(), map_frame_name_, "gps_map"));
+    if(tf_gps_wrt_other_frames)
+        tfb_.sendTransform( tf::StampedTransform(tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(sensor_p_map[0], sensor_p_map[1], sensor_p_map[2])), ros::Time::now(), map_frame_name_, "gps_map"));
 
 
     /*
@@ -245,62 +244,62 @@ void WolfGPSNode::publishWorld2MapTF(Eigen::Vector3s _map_p, Eigen::Vector1s _ma
      * map-to-ECEF transform matrix
      * made by the product of the next 4 matrixes
      */
-    Eigen::Matrix<WolfScalar, 4, 4> T_trans = Eigen::Matrix<WolfScalar, 4, 4>::Identity();
-    T_trans(0, 3) = WolfScalar(_map_p[0]);
-    T_trans(1, 3) = WolfScalar(_map_p[1]);
-    T_trans(2, 3) = WolfScalar(_map_p[2]);
+    Eigen::Matrix<WolfScalar, 4, 4> T_ecef_aux = Eigen::Matrix<WolfScalar, 4, 4>::Identity();
+    T_ecef_aux(0, 3) = WolfScalar(_map_p[0]);
+    T_ecef_aux(1, 3) = WolfScalar(_map_p[1]);
+    T_ecef_aux(2, 3) = WolfScalar(_map_p[2]);
     if (verbose_level_ >= 2)
-        std::cout << "T_trans\n" << T_trans << std::endl << std::endl;
+        std::cout << "T_ecef_aux\n" << T_ecef_aux << std::endl << std::endl;
 
-    Eigen::Matrix<WolfScalar, 4, 4> T_lon2ecef = Eigen::Matrix<WolfScalar, 4, 4>::Identity();
-    T_lon2ecef(0, 0) = cos(lon);
-    T_lon2ecef(0, 1) = -sin(lon);
-    T_lon2ecef(1, 0) = sin(lon);
-    T_lon2ecef(1, 1) = cos(lon);
+    Eigen::Matrix<WolfScalar, 4, 4> T_aux_lon = Eigen::Matrix<WolfScalar, 4, 4>::Identity();
+    T_aux_lon(0, 0) = cos(lon);
+    T_aux_lon(0, 1) = -sin(lon);
+    T_aux_lon(1, 0) = sin(lon);
+    T_aux_lon(1, 1) = cos(lon);
     if (verbose_level_ >= 2)
-        std::cout << "T_lon2ecef\n" << T_lon2ecef << std::endl << std::endl;
+        std::cout << "T_aux_lon\n" << T_aux_lon << std::endl << std::endl;
 
-    Eigen::Matrix<WolfScalar, 4, 4> T_lat2lon = Eigen::Matrix<WolfScalar, 4, 4>::Identity();
-    T_lat2lon(0, 0) = cos(lat);
-    T_lat2lon(0, 2) = -sin(lat);
-    T_lat2lon(2, 0) = sin(lat);
-    T_lat2lon(2, 2) = cos(lat);
+    Eigen::Matrix<WolfScalar, 4, 4> T_lon_lat = Eigen::Matrix<WolfScalar, 4, 4>::Identity();
+    T_lon_lat(0, 0) = cos(lat);
+    T_lon_lat(0, 2) = -sin(lat);
+    T_lon_lat(2, 0) = sin(lat);
+    T_lon_lat(2, 2) = cos(lat);
     if (verbose_level_ >= 2)
-        std::cout << "T_lat2lon\n" << T_lat2lon << std::endl << std::endl;
+        std::cout << "T_lon_lat\n" << T_lon_lat << std::endl << std::endl;
 
-    Eigen::Matrix<WolfScalar, 4, 4> T_enu2lat = Eigen::Matrix<WolfScalar, 4, 4>::Zero();
-    T_enu2lat(0, 2) = T_enu2lat(1, 0) = T_enu2lat(2, 1) = T_enu2lat(3, 3) = 1;
+    Eigen::Matrix<WolfScalar, 4, 4> T_lat_enu = Eigen::Matrix<WolfScalar, 4, 4>::Zero();
+    T_lat_enu(0, 2) = T_lat_enu(1, 0) = T_lat_enu(2, 1) = T_lat_enu(3, 3) = 1;
     if (verbose_level_ >= 2)
-        std::cout << "T_enu2lat\n" << T_enu2lat << std::endl << std::endl;
+        std::cout << "T_lat_enu\n" << T_lat_enu << std::endl << std::endl;
 
-    Eigen::Matrix<WolfScalar, 4, 4> T_map2enu = Eigen::Matrix<WolfScalar, 4, 4>::Identity();
-    T_map2enu(0, 0) = WolfScalar(cos(_map_o[0]));
-    T_map2enu(0, 1) = WolfScalar(-sin(_map_o[0]));
-    T_map2enu(1, 0) = WolfScalar(sin(_map_o[0]));
-    T_map2enu(1, 1) = WolfScalar(cos(_map_o[0]));
+    Eigen::Matrix<WolfScalar, 4, 4> T_enu_map = Eigen::Matrix<WolfScalar, 4, 4>::Identity();
+    T_enu_map(0, 0) = WolfScalar(cos(_map_o[0]));
+    T_enu_map(0, 1) = WolfScalar(-sin(_map_o[0]));
+    T_enu_map(1, 0) = WolfScalar(sin(_map_o[0]));
+    T_enu_map(1, 1) = WolfScalar(cos(_map_o[0]));
     if (verbose_level_ >= 2)
-        std::cout << "T_map2enu\n" << T_map2enu << std::endl << std::endl;
+        std::cout << "T_enu_map\n" << T_enu_map << std::endl << std::endl;
 
 
-    Eigen::Matrix<WolfScalar, 4, 4> T_map2ecef = T_trans *  T_lon2ecef * T_lat2lon * T_enu2lat * T_map2enu;
+    Eigen::Matrix<WolfScalar, 4, 4> T_ecef_map = T_ecef_aux *  T_aux_lon * T_lon_lat * T_lat_enu * T_enu_map;
     if (verbose_level_ >= 2)
-        std::cout << "---------T_map2ecef\n" << T_map2ecef << std::endl << std::endl;
+        std::cout << "---------T_ecef_map\n" << T_ecef_map << std::endl << std::endl;
 
 
     //sensor position with respect to ecef coordinate system
-    Eigen::Matrix<WolfScalar, 4, 1> sensor_p_ecef =  T_map2ecef * sensor_p_map;
+    Eigen::Matrix<WolfScalar, 4, 1> sensor_p_ecef =  T_ecef_map * sensor_p_map;
     if (verbose_level_ >= 1)
         std::cout << "!!! sensor_p_ecef: " << sensor_p_ecef[0] << ", " << sensor_p_ecef[1] << ", " << sensor_p_ecef[2] << std::endl;
 
 
     //broadcast map wrt world TF
-    Eigen::Matrix<WolfScalar, 3, 3> submatrix = T_map2ecef.block(0, 0, 3, 3);//create quaternion from the submatrix from 0, 0 big 3, 3
-    Eigen::Quaternions quat_map2ecef(submatrix);
+    Eigen::Matrix<WolfScalar, 3, 3> submatrix = T_ecef_map.block(0, 0, 3, 3);//create quaternion from the submatrix from 0, 0 big 3, 3
+    Eigen::Quaternions quat_ecef_map(submatrix);
     tf::Quaternion q;
-    q.setX(quat_map2ecef.x());
-    q.setY(quat_map2ecef.y());
-    q.setZ(quat_map2ecef.z());
-    q.setW(quat_map2ecef.w());
+    q.setX(quat_ecef_map.x());
+    q.setY(quat_ecef_map.y());
+    q.setZ(quat_ecef_map.z());
+    q.setW(quat_ecef_map.w());
     if(verbose_level_ >= 1)
         std::cout << "QUATERNION:" << q.x() << ", "<< q.y() << ", " << q.z() << ", " << q.w() << std::endl << std::endl;
 
@@ -312,7 +311,8 @@ void WolfGPSNode::publishWorld2MapTF(Eigen::Vector3s _map_p, Eigen::Vector1s _ma
 
 
     // broadcast TF of gps wrt world
-    tfb_.sendTransform( tf::StampedTransform(tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(sensor_p_ecef[0], sensor_p_ecef[1], sensor_p_ecef[2])), ros::Time::now(), world_frame_name_, "gps_world"));
+    if(tf_gps_wrt_other_frames)
+        tfb_.sendTransform( tf::StampedTransform(tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(sensor_p_ecef[0], sensor_p_ecef[1], sensor_p_ecef[2])), ros::Time::now(), world_frame_name_, "gps_world"));
 
 }
 
@@ -410,7 +410,7 @@ void WolfGPSNode::createFrame(const Eigen::VectorXs& _frame_state, const TimeSta
     current_frame_ = problem_->getLastFramePtr();
     //std::cout << "current_frame_" << std::endl;
 
-    // Zero odometry (to be integrated)
+//    // Zero odometry (to be integrated)
 //    if (last_key_frame_ != nullptr)
 //    {
 //        //TODO leave commented after adding odometry?
@@ -591,42 +591,37 @@ void WolfGPSNode::publishTrajectory(bool verbose)
 
 void WolfGPSNode::fixEcefCallback(const iri_common_drivers_msgs::NavSatFix_ecef::ConstPtr &msg)
 {
-//    std::cout << "%%%%  FIX " << fix_arrived_ << " ecef = (" << msg->x << ", " << msg->y << ", " << msg->z << ")\n";
     fix_arrived_++;
 
-    if(fix_arrived_ % 5 == 0)
-    {
-        visualization_msgs::Marker m;
-        m.header.frame_id = world_frame_name_;
-        m.header.stamp = ros::Time::now();
+//    if(fix_arrived_ % 5 == 0)     std::cout << "%%%%  FIX:  = (" << std::setprecision(12) << msg->x << ", " << msg->y << ", " << msg->z << ")\n";
 
-        m.ns = "gps_fix";
-        m.id = 1;//fix_arrived_;
+    visualization_msgs::Marker m;
+    m.header.frame_id = world_frame_name_;
+    m.header.stamp = ros::Time::now();
 
-        m.type = visualization_msgs::Marker::SPHERE;
-        m.action = visualization_msgs::Marker::ADD;
+    m.ns = "gps_fix";
+    m.id = 1;//fix_arrived_;
 
-        // Pose of the marker.  This is a full 6DOF pose relative to the frame/time specified in the header
-        m.pose.position.x = msg->x;
-        m.pose.position.y = msg->y;
-        m.pose.position.z = msg->z;
-        m.pose.orientation.x = 0.0;
-        m.pose.orientation.y = 0.0;
-        m.pose.orientation.z = 0.0;
-        m.pose.orientation.w = 1.0;
-        m.scale.x =  m.scale.y = m.scale.z = 5;
+    m.type = visualization_msgs::Marker::SPHERE;
+    m.action = visualization_msgs::Marker::ADD;
 
-        m.color.r = 1.0f;
-        m.color.g = 0.0f;
-        m.color.b = 1.0f;
-        m.color.a = 0.4;
-        marker_pub_.publish(m);
-    }
+    // Pose of the marker.  This is a full 6DOF pose relative to the frame/time specified in the header
+    m.pose.position.x = msg->x;
+    m.pose.position.y = msg->y;
+    m.pose.position.z = msg->z;
+    m.pose.orientation.x = 0.0;
+    m.pose.orientation.y = 0.0;
+    m.pose.orientation.z = 0.0;
+    m.pose.orientation.w = 1.0;
+    m.scale.x =  m.scale.y = m.scale.z = 5;
 
+    m.color.r = 1.0f;
+    m.color.g = 0.0f;
+    m.color.b = 1.0f;
+    m.color.a = 0.4;
+    marker_pub_.publish(m);
 
-    tfb_.sendTransform( tf::StampedTransform(tf::Transform(tf::Quaternion(0,0,0,1),
-                                                           tf::Vector3(msg->x, msg->y, msg->z)),
-                                             ros::Time::now(),
-                                             world_frame_name_,
-                                             "gps_fix"));
+    // broadcast TF of last fix received
+    tfb_.sendTransform( tf::StampedTransform(tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(msg->x, msg->y, msg->z)),ros::Time::now(),world_frame_name_,"gps_fix"));
+
 }

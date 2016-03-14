@@ -100,7 +100,7 @@ protected:
     tf::Transform T_odom2base_; //published by odom source
     tf::Transform T_map2odom_;  //to be broadcasted by this node
     const std::string base_frame_name_ = "teo_base_footprint";
-    const std::string gps_frame_name_ = "gps";
+    const std::string gps_frame_name_ = "gps_asterx1";
     const std::string world_frame_name_ = "world";
     const std::string map_frame_name_ = "map";
     const std::string odom_frame_name_ = "teo_odom";
