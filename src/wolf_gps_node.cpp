@@ -140,8 +140,6 @@ void WolfGPSNode::process()
 
 }
 
-//TODO replace all with Eigen::Matrix4s
-
 //TODO see if is better to use 3x3 matrixes
 void WolfGPSNode::broadcastTfMapOdom(Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o)
 {
@@ -237,11 +235,11 @@ void WolfGPSNode::broadcastTfWorldMap(Eigen::Vector3s _map_p, Eigen::Vector1s _m
     // broadcast TF of gps wrt base
     tfb_.sendTransform(tf::StampedTransform(tf::Transform(tf::Quaternion(0,0,0,1),tf::Vector3(_sensor_p[0], _sensor_p[1], _sensor_p[2])),ros::Time::now(),base_frame_name_,gps_frame_name_));
 
-    Eigen::Matrix<WolfScalar, 4, 1> sensor_p_base(_sensor_p[0], _sensor_p[1], _sensor_p[2], WolfScalar(1)); //sensor position wrt base (the vehicle)
+    Eigen::Vector4s sensor_p_base(_sensor_p[0], _sensor_p[1], _sensor_p[2], WolfScalar(1)); //sensor position wrt base (the vehicle)
     /*
      * Base-to-map transform matrix
      */
-    Eigen::Matrix<WolfScalar, 4, 4> T_map_base = Eigen::Matrix<WolfScalar, 4, 4>::Identity();
+    Eigen::Matrix4s T_map_base = Eigen::Matrix4s::Identity();
     T_map_base(0, 0) = cos(_vehicle_o[0]);
     T_map_base(0, 1) = -sin(_vehicle_o[0]);
     T_map_base(1, 0) = sin(_vehicle_o[0]);
@@ -250,7 +248,7 @@ void WolfGPSNode::broadcastTfWorldMap(Eigen::Vector3s _map_p, Eigen::Vector1s _m
     T_map_base(1, 3) = _vehicle_p[1];
 
     // sensor position with respect to map frame
-    Eigen::Matrix<WolfScalar, 4, 1> sensor_p_map = T_map_base * sensor_p_base;
+    Eigen::Vector4s sensor_p_map = T_map_base * sensor_p_base;
 
     if (verbose_level_ >= 1)
         std::cout << "!!! sensor_p_map: " << sensor_p_map.transpose() << std::endl;
@@ -287,14 +285,14 @@ void WolfGPSNode::broadcastTfWorldMap(Eigen::Vector3s _map_p, Eigen::Vector1s _m
      * map-to-ECEF transform matrix
      * made by the product of the next 4 matrixes
      */
-    Eigen::Matrix<WolfScalar, 4, 4> T_ecef_aux = Eigen::Matrix<WolfScalar, 4, 4>::Identity();
+    Eigen::Matrix4s T_ecef_aux = Eigen::Matrix4s::Identity();
     T_ecef_aux(0, 3) = WolfScalar(_map_p[0]);
     T_ecef_aux(1, 3) = WolfScalar(_map_p[1]);
     T_ecef_aux(2, 3) = WolfScalar(_map_p[2]);
     if (verbose_level_ >= 2)
         std::cout << "T_ecef_aux\n" << T_ecef_aux << std::endl << std::endl;
 
-    Eigen::Matrix<WolfScalar, 4, 4> T_aux_lon = Eigen::Matrix<WolfScalar, 4, 4>::Identity();
+    Eigen::Matrix4s T_aux_lon = Eigen::Matrix4s::Identity();
     T_aux_lon(0, 0) = cos(lon);
     T_aux_lon(0, 1) = -sin(lon);
     T_aux_lon(1, 0) = sin(lon);
@@ -302,7 +300,7 @@ void WolfGPSNode::broadcastTfWorldMap(Eigen::Vector3s _map_p, Eigen::Vector1s _m
     if (verbose_level_ >= 2)
         std::cout << "T_aux_lon\n" << T_aux_lon << std::endl << std::endl;
 
-    Eigen::Matrix<WolfScalar, 4, 4> T_lon_lat = Eigen::Matrix<WolfScalar, 4, 4>::Identity();
+    Eigen::Matrix4s T_lon_lat = Eigen::Matrix4s::Identity();
     T_lon_lat(0, 0) = cos(lat);
     T_lon_lat(0, 2) = -sin(lat);
     T_lon_lat(2, 0) = sin(lat);
@@ -310,12 +308,12 @@ void WolfGPSNode::broadcastTfWorldMap(Eigen::Vector3s _map_p, Eigen::Vector1s _m
     if (verbose_level_ >= 2)
         std::cout << "T_lon_lat\n" << T_lon_lat << std::endl << std::endl;
 
-    Eigen::Matrix<WolfScalar, 4, 4> T_lat_enu = Eigen::Matrix<WolfScalar, 4, 4>::Zero();
+    Eigen::Matrix4s T_lat_enu = Eigen::Matrix4s::Zero();
     T_lat_enu(0, 2) = T_lat_enu(1, 0) = T_lat_enu(2, 1) = T_lat_enu(3, 3) = 1;
     if (verbose_level_ >= 2)
         std::cout << "T_lat_enu\n" << T_lat_enu << std::endl << std::endl;
 
-    Eigen::Matrix<WolfScalar, 4, 4> T_enu_map = Eigen::Matrix<WolfScalar, 4, 4>::Identity();
+    Eigen::Matrix4s T_enu_map = Eigen::Matrix4s::Identity();
     T_enu_map(0, 0) = WolfScalar(cos(_map_o[0]));
     T_enu_map(0, 1) = WolfScalar(-sin(_map_o[0]));
     T_enu_map(1, 0) = WolfScalar(sin(_map_o[0]));
@@ -324,13 +322,13 @@ void WolfGPSNode::broadcastTfWorldMap(Eigen::Vector3s _map_p, Eigen::Vector1s _m
         std::cout << "T_enu_map\n" << T_enu_map << std::endl << std::endl;
 
 
-    Eigen::Matrix<WolfScalar, 4, 4> T_ecef_map = T_ecef_aux *  T_aux_lon * T_lon_lat * T_lat_enu * T_enu_map;
+    Eigen::Matrix4s T_ecef_map = T_ecef_aux *  T_aux_lon * T_lon_lat * T_lat_enu * T_enu_map;
     if (verbose_level_ >= 2)
         std::cout << "---------T_ecef_map\n" << T_ecef_map << std::endl << std::endl;
 
 
     //sensor position with respect to ecef coordinate system
-    Eigen::Matrix<WolfScalar, 4, 1> sensor_p_ecef =  T_ecef_map * sensor_p_map;
+    Eigen::Vector4s sensor_p_ecef =  T_ecef_map * sensor_p_map;
     if (verbose_level_ >= 1)
         std::cout << "!!! sensor_p_ecef: " << sensor_p_ecef[0] << ", " << sensor_p_ecef[1] << ", " << sensor_p_ecef[2] << std::endl;
 
