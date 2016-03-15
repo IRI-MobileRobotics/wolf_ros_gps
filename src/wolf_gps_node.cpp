@@ -29,8 +29,8 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
                                     new StateBlock(Eigen::Vector1s::Zero()),      //gps sensor bias
                                     new StateBlock(_map_pose.head(3)),   //map position
                                     new StateBlock(_map_pose.tail(1)));  // map orientation
+    // GPS sensor
     problem_->getHardwarePtr()->addSensor(gps_sensor_ptr_);
-
     gps_sensor_ptr_->addProcessor(new ProcessorGPS());
 
     // Odometry sensor
@@ -46,10 +46,8 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
     createFrame(_prior, TimeStamp(0));
 
 
-
     // [init publishers]
     // Broadcast 0 transform to align frames initially
-
     T_odom_map_ = tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(0, 0, 0));
     tfb_.sendTransform( tf::StampedTransform(T_odom_map_, ros::Time::now(), map_frame_name_, odom_frame_name_));
 
@@ -67,6 +65,7 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
     apply_loss_function_ = false;
 
     // init ceres
+    //TODO check again with other ceres options
     ceres_options_.minimizer_type = ceres::TRUST_REGION;
     ceres_options_.max_line_search_step_contraction = 1e-3;
     ceres_options_.max_num_iterations = max_iterations_;
@@ -98,8 +97,6 @@ void WolfGPSNode::process()
     gps_data_arrived_ = 0;
     ros::Time local_stamp = ros::Time::now();
 
-    //solve problem
-    //std::cout << "wolf updated" << std::endl;
     ceres_manager_->update(use_auto_diff_wrapper_, apply_loss_function_);
     //std::cout << "ceres updated" << std::endl;
     ceres::Solver::Summary summary = ceres_manager_->solve(ceres_options_);
@@ -114,7 +111,7 @@ void WolfGPSNode::process()
 
 
     // Broadcast transforms ---------------------------------------------------------------------------
-    // TODO check transform!
+    // TODO check transforms!
     broadcastTfWorldMap(gps_sensor_ptr_->getMapPPtr()->getVector(), gps_sensor_ptr_->getMapOPtr()->getVector(), getVehiclePose().head(2), getVehiclePose().tail(1), gps_sensor_ptr_->getPPtr()->getVector());
     broadcastTfMapOdom(vehicle_pose.head(2), vehicle_pose.tail(1));
 
@@ -140,7 +137,7 @@ void WolfGPSNode::process()
 
 }
 
-//TODO see if is better to use 3x3 matrixes
+
 void WolfGPSNode::broadcastTfMapOdom(Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o)
 {
     /*
@@ -157,9 +154,14 @@ void WolfGPSNode::broadcastTfMapOdom(Eigen::Vector2s _vehicle_p, Eigen::Vector1s
     /*
      * Pose of base wrt odom. assumes that it's broadcasted by an odometry node
      */
-    //TODO it's really needed to go to Eigen and then come back to tf? why not multiply directly tf matrixes?
     tf::StampedTransform Tf_odom_base;
-    tfl_.lookupTransform(odom_frame_name_, base_frame_name_, ros::Time(0), Tf_odom_base);
+    try {
+        tfl_.waitForTransform(odom_frame_name_, base_frame_name_, ros::Time(0), ros::Duration(10.0));
+        tfl_.lookupTransform(odom_frame_name_, base_frame_name_, ros::Time(0), Tf_odom_base);
+    } catch (tf::TransformException ex) {
+        ROS_ERROR("error in broadcastTfMapOdom:\n%s",ex.what());
+    }
+
     //fill an Eigen matrix
     Eigen::Matrix4s T_odom_base = Eigen::Matrix4s::Identity();
     tf::Matrix3x3 Tf_odom_base_basis = Tf_odom_base.getBasis();//this is the 3x3 rotation matrix
@@ -179,12 +181,18 @@ void WolfGPSNode::broadcastTfMapOdom(Eigen::Vector2s _vehicle_p, Eigen::Vector1s
      * Broadcast a Tf transform T_map_odom
      */
     tf::Transform Tf_map_odom;
+
+    //set origin
     Tf_map_odom.setOrigin( tf::Vector3(T_map_odom(0, 3), T_map_odom(1, 3), T_map_odom(2, 3)) );
-    tf::Matrix3x3 Tf_map_odom_basis = Tf_odom_base.getBasis();
+
+    //set rotation
+    tf::Matrix3x3 Tf_map_odom_basis;
     for (int i = 0; i < 3; ++i)
         for (int j = 0; j < 3; ++j)
             Tf_map_odom_basis[i][j] = T_map_odom(i, j);
-    Tf_map_odom.setBasis(Tf_map_odom_basis); //This is the rotation
+    Tf_map_odom.setBasis(Tf_map_odom_basis);
+
+    //broadcast the transform
     tfb_.sendTransform(tf::StampedTransform(Tf_map_odom, ros::Time::now(), map_frame_name_, odom_frame_name_));
 
 //    /*
@@ -210,7 +218,6 @@ void WolfGPSNode::broadcastTfMapOdom(Eigen::Vector2s _vehicle_p, Eigen::Vector1s
 //    }
 //    else
 //        ROS_WARN_STREAM("No odom_to_base frame received: "<< odom_frame_name_<<" " << base_frame_name_);
-
 }
 
 
