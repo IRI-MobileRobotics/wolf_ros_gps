@@ -53,6 +53,7 @@ public:
                 const unsigned int& _trajectory_size,
                 const WolfScalar& _new_frame_elapsed_time,
                 const Eigen::Vector3s& _gps_sensor_p,
+                const Eigen::Vector1s& _sensor_bias,
                 Eigen::Vector4s& _map_pose,
                 Eigen::Vector2s& _odom_std);
     virtual ~WolfGPSNode();

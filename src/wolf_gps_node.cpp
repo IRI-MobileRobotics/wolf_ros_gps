@@ -9,6 +9,7 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
                          const unsigned int& _trajectory_size,
                          const WolfScalar& _new_frame_elapsed_time,
                          const Eigen::Vector3s& _gps_sensor_p,
+                         const Eigen::Vector1s& _sensor_bias,
                          Eigen::Vector4s& _map_pose,
                          Eigen::Vector2s& _odom_std) :
         nh_(ros::this_node::getName()),
@@ -26,7 +27,7 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
     // GPS sensor
     gps_sensor_ptr_ = new SensorGPS(new StateBlock(_gps_sensor_p, true), //gps sensor position. for now is fixed,
                                     new StateBlock(Eigen::Vector4s::Zero(), true),   //gps sensor orientation. is fixed
-                                    new StateBlock(Eigen::Vector1s::Zero()),      //gps sensor bias
+                                    new StateBlock(_sensor_bias),      //gps sensor bias
                                     new StateBlock(_map_pose.head(3)),   //map position
                                     new StateBlock(_map_pose.tail(1)));  // map orientation
     // GPS sensor
@@ -434,13 +435,14 @@ bool WolfGPSNode::checkNewFrame(CaptureBase* new_capture)
 
 void WolfGPSNode::createFrame(const Eigen::VectorXs& _frame_state, const TimeStamp& _time_stamp)
 {
-    //std::cout << "creating new frame..." << _frame_state.transpose() << std::endl;
+    std::cout << "creating new frame..." << _frame_state.transpose() << std::endl;
 
     // current frame -> KEYFRAME
     last_key_frame_ = current_frame_;
 
     // ---------------------- CREATE NEW FRAME ---------------------
     problem_->getTrajectoryPtr()->addFrame(new FrameBase(_time_stamp, new StateBlock(_frame_state.head(2)), new StateBlock(_frame_state.tail(1))));
+    //TODO in wolf manager the previous line is like this: problem_->createFrame(KEY_FRAME, _frame_state, _time_stamp);
     //std::cout << "frame created" << std::endl;
 
     // Store new current frame
@@ -566,11 +568,11 @@ void WolfGPSNode::addCapture(CaptureBase* new_capture)
 
 void WolfGPSNode::manageWindow()
 {
-    //std::cout << "managing window..." << std::endl;
+    std::cout << "managing window..." << std::endl;
     // WINDOW of FRAMES (remove or fix old frames)
     if (problem_->getTrajectoryPtr()->getFrameListPtr()->size() > trajectory_size_+1)
     {
-        //std::cout << "first_window_frame_ " << (*first_window_frame_)->nodeId() << std::endl;
+        std::cout << "fixing first_window_frame_ " << (*first_window_frame_)->nodeId() << std::endl;
         //problem_->getTrajectoryPtr()->removeFrame(problem_->getTrajectoryPtr()->getFrameListPtr()->begin());
         (*first_window_frame_)->fix();
         first_window_frame_++;
