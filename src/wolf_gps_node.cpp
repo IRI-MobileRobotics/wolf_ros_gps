@@ -48,8 +48,7 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
 
     // [init publishers]
     // Broadcast 0 transform to align frames initially
-    T_odom_map_ = tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(0, 0, 0));
-    tfb_.sendTransform( tf::StampedTransform(T_odom_map_, ros::Time::now(), map_frame_name_, odom_frame_name_));
+    tfb_.sendTransform( tf::StampedTransform(tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(0, 0, 0)), ros::Time::now(), map_frame_name_, odom_frame_name_));
 
 
     // [init subscribers]
@@ -406,11 +405,8 @@ void WolfGPSNode::gpsCallback(const iri_common_drivers_msgs::SatellitePseudorang
         }
         //std::cout << "------OBS: found " << obs.measurements_.size() << " sats\n";
 
-        TimeStamp time_stamp(obs.time_ros_sec_, obs.time_ros_nsec_);
-
-        addCapture(new CaptureGPS(time_stamp, gps_sensor_ptr_, obs));
+        addCapture(new CaptureGPS(TimeStamp(msg->time_ros.sec, msg->time_ros.nsec), gps_sensor_ptr_, obs));
         //std::cout << "added CaptureGPS with " << msg->measurements.size() << " measurements\n";
-
     }
 }
 

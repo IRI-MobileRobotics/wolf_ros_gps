@@ -18,7 +18,7 @@ int main(int argc, char **argv)
     double new_frame_elapsed_time = 1.0;
     // BUONO LUNGO
     Eigen::Vector3s gps_sensor_p(0.55, -0.2, 1.1);
-    Eigen::Vector4s map_pose(4789373, 177039, 4194527, 195.0*M_PI/180);//sidewalk near parking quimica
+    Eigen::Vector4s map_pose(4789373, 177039, 4194527, 15.0*M_PI/180);//sidewalk near parking quimica
 
 //    //BUONO CORTO
 //    Eigen::Vector3s gps_sensor_p(0.55, -0.2, 1.1);
