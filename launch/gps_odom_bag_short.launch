@@ -1,0 +1,14 @@
+<launch>
+
+<arg name="bag_file_name" default="/home/ptirindelli/rosbags/teo/buono-corto-2016-03-04-10-52-09.bag" />
+
+<include file="$(find wolf_ros_gps)/launch/gps_odom.launch" />
+
+<node pkg="rosbag"
+      type="play"
+      name="rosbag"
+      args="-d 0 --clock -k $(arg bag_file_name)"/>
+
+<param name="use_sim_time" value="true" />
+	
+</launch>
