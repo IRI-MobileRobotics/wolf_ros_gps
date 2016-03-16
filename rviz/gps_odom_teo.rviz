@@ -72,13 +72,9 @@ Visualization Manager:
       Frame Timeout: 30
       Frames:
         All Enabled: true
-        gps_base:
+        gps_asterx1:
           Value: true
         gps_fix:
-          Value: true
-        gps_map:
-          Value: true
-        gps_world:
           Value: true
         map:
           Value: true
@@ -120,7 +116,7 @@ Visualization Manager:
       Tree:
         teo_odom:
           teo_base_footprint:
-            gps_base:
+            gps_asterx1:
               {}
             teo_base_link:
               teo_front_bumper:
@@ -148,17 +144,14 @@ Visualization Manager:
         world:
           gps_fix:
             {}
-          gps_world:
-            {}
           map:
-            gps_map:
-              {}
+            {}
       Update Interval: 0
       Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: teo_odom
+    Fixed Frame: map
     Frame Rate: 30
   Name: root
   Tools:
@@ -179,22 +172,22 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/XYOrbit
-      Distance: 45.9992
+      Distance: 44.0828
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -5.93211
-        Y: -0.128383
-        Z: -1.75167e-05
+        X: 5.77613
+        Y: 4.39845
+        Z: -6.07261e-06
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.510308
+      Pitch: 1.5398
       Target Frame: <Fixed Frame>
       Value: XYOrbit (rviz)
-      Yaw: 2.97682
+      Yaw: 1.68681
     Saved: ~
 Window Geometry:
   Displays:

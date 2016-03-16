@@ -28,7 +28,7 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
     gps_sensor_ptr_ = new SensorGPS(new StateBlock(_gps_sensor_p, true), //gps sensor position. for now is fixed,
                                     new StateBlock(Eigen::Vector4s::Zero(), true),   //gps sensor orientation. is fixed
                                     new StateBlock(_sensor_bias),      //gps sensor bias
-                                    new StateBlock(_map_pose.head(3)),   //map position
+                                    new StateBlock(_map_pose.head(3), true),   //map position
                                     new StateBlock(_map_pose.tail(1)));  // map orientation
     // GPS sensor
     problem_->getHardwarePtr()->addSensor(gps_sensor_ptr_);
@@ -62,13 +62,16 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
     max_iterations_ = 1e4;
 
     use_auto_diff_wrapper_ = false;
-    apply_loss_function_ = false;
+    apply_loss_function_ = true;
 
     // init ceres
     //TODO check again with other ceres options
     ceres_options_.minimizer_type = ceres::TRUST_REGION;
     ceres_options_.max_line_search_step_contraction = 1e-3;
     ceres_options_.max_num_iterations = max_iterations_;
+//    ceres_options_.parameter_tolerance = 1e-12;
+//    ceres_options_.function_tolerance = 1e-12;
+//    ceres_options_.minimizer_progress_to_stdout = true;
     problem_options_.cost_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
     problem_options_.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
     problem_options_.local_parameterization_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
@@ -102,8 +105,8 @@ void WolfGPSNode::process()
     ceres::Solver::Summary summary = ceres_manager_->solve(ceres_options_);
     std::cout << "------------------------- SOLVED -------------------------" << std::endl;
     //std::cout << (use_auto_diff_wrapper_ ? "AUTO DIFF WRAPPER" : "CERES AUTO DIFF") << std::endl;
-//    std::cout << summary.FullReport() << std::endl;
-    std::cout << summary.BriefReport() << std::endl;
+    std::cout << summary.FullReport() << std::endl;
+//    std::cout << summary.BriefReport() << std::endl;
 
     // Sets localization timestamp & Gets wolf localization estimate
     time_last_process_ = ros::Time::now();
@@ -642,7 +645,7 @@ void WolfGPSNode::fixEcefCallback(const iri_common_drivers_msgs::NavSatFix_ecef:
     m.header.stamp = ros::Time::now();
 
     m.ns = "gps_fix";
-    m.id = 1;//fix_arrived_;
+    m.id = fix_arrived_;
 
     m.type = visualization_msgs::Marker::SPHERE;
     m.action = visualization_msgs::Marker::ADD;
@@ -655,7 +658,9 @@ void WolfGPSNode::fixEcefCallback(const iri_common_drivers_msgs::NavSatFix_ecef:
     m.pose.orientation.y = 0.0;
     m.pose.orientation.z = 0.0;
     m.pose.orientation.w = 1.0;
-    m.scale.x =  m.scale.y = m.scale.z = 5;
+    m.scale.x =  m.scale.y = m.scale.z = 0.4;
+
+    m.lifetime = ros::Duration();
 
     m.color.r = 1.0f;
     m.color.g = 0.0f;
