@@ -1,5 +1,8 @@
 <launch>
 
+    <!-- robot -->
+    <param name="robot_description" command="$(find xacro)/xacro.py '$(find teo_base)/model/teo.urdf.xacro'" />
+
   <node name="rviz"
 		pkg="rviz"
 		type="rviz"

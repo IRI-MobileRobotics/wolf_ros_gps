@@ -6,6 +6,7 @@ Panels:
       Expanded:
         - /Global Options1
         - /TF1
+        - /RobotModel1
       Splitter Ratio: 0.522059
     Tree Height: 700
   - Class: rviz/Selection
@@ -114,40 +115,120 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        teo_odom:
-          teo_base_footprint:
-            gps_asterx1:
-              {}
-            teo_base_link:
-              teo_front_bumper:
-                {}
-              teo_front_laser:
-                {}
-              teo_gps:
-                {}
-              teo_h3d:
-                {}
-              teo_imu:
-                {}
-              teo_rear_bumper:
-                {}
-              teo_rear_laser:
-                {}
-              teo_wheel_bl:
-                {}
-              teo_wheel_br:
-                {}
-              teo_wheel_fl:
-                {}
-              teo_wheel_fr:
-                {}
         world:
           gps_fix:
             {}
           map:
-            {}
+            teo_odom:
+              teo_base_footprint:
+                gps_asterx1:
+                  {}
+                teo_base_link:
+                  teo_front_bumper:
+                    {}
+                  teo_front_laser:
+                    {}
+                  teo_gps:
+                    {}
+                  teo_h3d:
+                    {}
+                  teo_imu:
+                    {}
+                  teo_rear_bumper:
+                    {}
+                  teo_rear_laser:
+                    {}
+                  teo_wheel_bl:
+                    {}
+                  teo_wheel_br:
+                    {}
+                  teo_wheel_fl:
+                    {}
+                  teo_wheel_fr:
+                    {}
       Update Interval: 0
       Value: true
+    - Alpha: 1
+      Class: rviz/RobotModel
+      Collision Enabled: false
+      Enabled: true
+      Links:
+        All Links Enabled: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
+        Link Tree Style: Links in Alphabetic Order
+        teo_base_footprint:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        teo_base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        teo_front_bumper:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        teo_front_laser:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        teo_gps:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        teo_h3d:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        teo_imu:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        teo_rear_bumper:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        teo_rear_laser:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        teo_wheel_bl:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        teo_wheel_br:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        teo_wheel_fl:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        teo_wheel_fr:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+      Name: RobotModel
+      Robot Description: robot_description
+      TF Prefix: ""
+      Update Interval: 0
+      Value: true
+      Visual Enabled: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
