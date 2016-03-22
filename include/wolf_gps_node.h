@@ -53,6 +53,7 @@ public:
                 const unsigned int& _trajectory_size,
                 const WolfScalar& _new_frame_elapsed_time,
                 const Eigen::Vector3s& _gps_sensor_p,
+                const Eigen::Vector1s& _sensor_bias,
                 Eigen::Vector4s& _map_pose,
                 Eigen::Vector2s& _odom_std);
     virtual ~WolfGPSNode();
@@ -96,15 +97,13 @@ protected:
     //transforms
     tf::TransformBroadcaster tfb_;
     tf::TransformListener    tfl_;
-    tf::Transform T_base_map_;  //wolf output
-    tf::Transform T_base_odom_; //published by odom source
-    tf::Transform T_odom_map_;  //to be broadcasted by this node
     const std::string base_frame_name_ = "teo_base_footprint";
-    const std::string gps_frame_name_ = "gps";
+    const std::string gps_frame_name_ = "gps_asterx1";
     const std::string world_frame_name_ = "world";
     const std::string map_frame_name_ = "map";
     const std::string odom_frame_name_ = "teo_odom";
-    void publishWorld2MapTF(Eigen::Vector3s _map_p, Eigen::Vector1s _map_o, Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o, Eigen::Vector3s _sensor_p);
+    void broadcastTfWorldMap(Eigen::Vector3s _map_p, Eigen::Vector1s _map_o, Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o, Eigen::Vector3s _sensor_p);
+    void broadcastTfMapOdom(Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o);
 
     //ceres
     int max_iterations_;
