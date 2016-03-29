@@ -73,7 +73,6 @@ public:
 protected:
     //sets the problem
     WolfProblem* problem_;
-    FrameStructure frame_structure_;
 
     //pointer to a sensor providing predictions
     SensorOdom2D* sensor_prior_;
