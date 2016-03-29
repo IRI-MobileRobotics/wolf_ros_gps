@@ -9,7 +9,7 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
                          const unsigned int& _trajectory_size,
                          const WolfScalar& _new_frame_elapsed_time,
                          const Eigen::Vector3s& _gps_sensor_p,
-                         const Eigen::Vector1s& _sensor_bias,
+                         const Eigen::Vector1s& _gps_clock_bias,
                          Eigen::Vector4s& _map_pose,
                          Eigen::Vector2s& _odom_std) :
         nh_(ros::this_node::getName()),
@@ -24,12 +24,32 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
     //std::cout << "WolfGPSNode::WolfGPSNode(...) -- constructor\n";
     assert( _prior.size() == 3 && "Wrong init_frame state vector");
 
+    // parameters
+    Eigen::Vector1s clock_bias;
+    bool map_o_fixed;
+    //Eigen::Vector4s map_pose;
+    WolfScalar map_o_degrees;
+
+    nh_.param<bool>("map_o_fixed", map_o_fixed, false);
+    nh_.param<WolfScalar>("map_o_degrees", map_o_degrees, 95.0);
+    nh_.param<WolfScalar>("map_p_x", _map_pose[0], 4789373);
+    nh_.param<WolfScalar>("map_p_y", _map_pose[1], 177039);
+    nh_.param<WolfScalar>("map_p_z", _map_pose[2], 4194527);
+    _map_pose[3] = map_o_degrees*M_PI/180;
+
+    std::cout << std::setprecision(12);
+    std::cout << "---------------- launch file PARAMS ----------------\n";
+    std::cout << "map_o_fixed: " << ((map_o_fixed) ? "true" : "false") << std::endl;
+    std::cout << "map_o_degrees " << map_o_degrees << std::endl;
+    std::cout << "map_pose " << _map_pose[0] << ", " << _map_pose[1] << ", " << _map_pose[2] << ", " << _map_pose[3] << std::endl;
+    std::cout << "----------------------------------------------------\n";
+
     // GPS sensor
     gps_sensor_ptr_ = new SensorGPS(new StateBlock(_gps_sensor_p, true), //gps sensor position. for now is fixed,
                                     new StateBlock(Eigen::Vector4s::Zero(), true),   //gps sensor orientation. is fixed
-                                    new StateBlock(_sensor_bias),      //gps sensor bias
+                                    new StateBlock(_gps_clock_bias),      //gps sensor bias
                                     new StateBlock(_map_pose.head(3), true),   //map position
-                                    new StateBlock(_map_pose.tail(1)));  // map orientation
+                                    new StateBlock(_map_pose.tail(1), map_o_fixed));  // map orientation
     // GPS sensor
     problem_->getHardwarePtr()->addSensor(gps_sensor_ptr_);
     gps_sensor_ptr_->addProcessor(new ProcessorGPS());
@@ -105,8 +125,8 @@ void WolfGPSNode::process()
     ceres::Solver::Summary summary = ceres_manager_->solve(ceres_options_);
     std::cout << "------------------------- SOLVED -------------------------" << std::endl;
     //std::cout << (use_auto_diff_wrapper_ ? "AUTO DIFF WRAPPER" : "CERES AUTO DIFF") << std::endl;
-    std::cout << summary.FullReport() << std::endl;
-//    std::cout << summary.BriefReport() << std::endl;
+//    std::cout << summary.FullReport() << std::endl;
+    std::cout << summary.BriefReport() << std::endl;
 
     // Sets localization timestamp & Gets wolf localization estimate
     time_last_process_ = ros::Time::now();
@@ -124,11 +144,14 @@ void WolfGPSNode::process()
     // MARKERS VEHICLE & CONSTRAINTS
     // [...]
 
+    WolfScalar map_o_norm = gps_sensor_ptr_->getMapOPtr()->getVector()[0];
+    while (map_o_norm < -M_PI)  map_o_norm += 2*M_PI;
+    while (map_o_norm >  M_PI)  map_o_norm -= 2*M_PI;
 
     std::cout << std::setprecision(12);
     std::cout << "\n~~~~ RESULTS ~~~~\n";
     std::cout << "|\tmap P: " << gps_sensor_ptr_->getMapPPtr()->getVector().transpose() << std::endl;// map position wrt (ecef)
-    std::cout << "|\tmap O: " << gps_sensor_ptr_->getMapOPtr()->getVector().transpose() << std::endl;// map orientation wrt (ecef)
+    std::cout << "|\tmap O: " << gps_sensor_ptr_->getMapOPtr()->getVector().transpose() << "\t\t(" << map_o_norm*180/M_PI << "º)" << std::endl;// map orientation wrt (ecef)
     std::cout << "|\tVehicle Pose: " << vehicle_pose.transpose() << std::endl;// position of the vehicle's frame with respect to the initial pos frame
     //publishTrajectory(false); (now is in main)
     std::cout << "|\tsensor P: " << gps_sensor_ptr_->getPPtr()->getVector().transpose() << std::endl;// position of the sensor with respect to the vehicle's frame
@@ -138,6 +161,15 @@ void WolfGPSNode::process()
     std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n";
 
 
+    if(problem_->getTrajectoryPtr()->getLastFramePtr()->nodeId() >= 500)            //(map_o_norm*180/M_PI < 35 && map_o_norm*180/M_PI > 14)
+    {
+//        TODO fix map_o non funziona!!
+        gps_sensor_ptr_->getMapOPtr()->fix();
+        std::cout << "\t\t\t\tmap_o FIXED" << std::endl;
+        std::cout << "\t\t\t\tmap_o FIXED" << std::endl;
+        std::cout << "\t\t\t\tmap_o FIXED" << std::endl;
+        std::cout << "\t\t\t\tmap_o FIXED" << std::endl;
+    }
 }
 
 
@@ -595,7 +627,8 @@ ros::Time WolfGPSNode::getTimeLastProcess()
 
 void WolfGPSNode::publishTrajectory(bool verbose)
 {
-    std::cout << "Trajectory:\n";
+    if(verbose)
+        std::cout << "Trajectory:\n";
     //To print all the previous frame
     int i=0;
     for (auto it : *(problem_->getTrajectoryPtr()->getFrameListPtr()))
