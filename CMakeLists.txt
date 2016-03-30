@@ -20,7 +20,14 @@ find_package(catkin REQUIRED)
 # ******************************************************************** 
 #                 Add catkin additional components here
 # ******************************************************************** 
-find_package(catkin REQUIRED COMPONENTS iri_base_algorithm visualization_msgs nav_msgs sensor_msgs tf)
+find_package(catkin REQUIRED COMPONENTS
+        iri_base_algorithm
+        visualization_msgs
+        nav_msgs
+        sensor_msgs
+        tf
+        iri_common_drivers_msgs
+)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -77,7 +84,7 @@ catkin_package(
 # ******************************************************************** 
 #            Add ROS and IRI ROS run time dependencies
 # ******************************************************************** 
- CATKIN_DEPENDS iri_base_algorithm visualization_msgs nav_msgs sensor_msgs
+ CATKIN_DEPENDS iri_base_algorithm visualization_msgs nav_msgs sensor_msgs iri_common_drivers_msgs
 # ******************************************************************** 
 #      Add system and labrobotica run time dependencies here
 # ******************************************************************** 
