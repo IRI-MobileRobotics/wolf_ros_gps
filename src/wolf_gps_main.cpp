@@ -37,7 +37,7 @@ int main(int argc, char **argv)
         //execute pending callbacks
         ros::spinOnce();
 
-        if(/*(wgps->hasDataToProcess())&&*/(ros::Time::now() > wgps->getTimeLastProcess() + ros::Duration(1)))
+        if((wgps->hasDataToProcess())&&(ros::Time::now() > wgps->getTimeLastProcess() + ros::Duration(1)))
         {
             wgps->process();
             wgps->publishTrajectory(true);

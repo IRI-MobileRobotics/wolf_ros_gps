@@ -22,10 +22,10 @@
           name="wolf_gps_node"
           output="screen">
         <param name="map_o_fixed" value="false"/>
-        <param name="map_o_degrees" value="95.0"/>
-        <param name="map_p_x" value="4789373"/>
-        <param name="map_p_y" value="177039"/>
-        <param name="map_p_z" value="4194527"/>
+        <param name="map_o_degrees" value="25.0"/>
+        <param name="map_p_x" value="4789372.8"/>
+        <param name="map_p_y" value="177039.6"/>
+        <param name="map_p_z" value="4194526.1"/>
         <!--<remap from="/sat_pseudoranges" to="gasdrfwer"/>-->
         <!--<remap from="/teo/odomfused" to="gasdrfwer"/>-->
     </node>
