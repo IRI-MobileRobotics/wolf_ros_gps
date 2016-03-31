@@ -12,14 +12,13 @@ int main(int argc, char **argv)
     // Init ROS
     ros::init(argc, argv, "wolf_gps_node");
 
+    //TODO move these params in the launch file, and delete them from here and from node constructor
     // some parameters for the node
     Eigen::Vector3s prior = Eigen::Vector3s(0, 0, 0);//prior pose of base in map
     int window_length = 5;
     double new_frame_elapsed_time = 1.0;
     // BUONO LUNGO
     Eigen::Vector3s gps_sensor_p(0.55, -0.2, 1.1);
-    Eigen::Vector4s map_pose(4789373, 177039, 4194527, 95.0*M_PI/180);//sidewalk near parking quimica
-
     Eigen::Vector1s gps_clock_bias; gps_clock_bias << -0.0002;
 //    //BUONO CORTO
 //    Eigen::Vector3s gps_sensor_p(0.55, -0.2, 1.1);
@@ -28,7 +27,7 @@ int main(int argc, char **argv)
     Eigen::Vector2s odom_std(0.2, 0.2);
 
     // Wolf GPS ROS node
-    WolfGPSNode* wgps = new WolfGPSNode(prior, window_length, new_frame_elapsed_time, gps_sensor_p, gps_clock_bias, map_pose, odom_std);
+    WolfGPSNode* wgps = new WolfGPSNode(prior, window_length, new_frame_elapsed_time, gps_sensor_p, gps_clock_bias, odom_std);
 
 
     ros::Rate loopRate(2);
@@ -38,7 +37,7 @@ int main(int argc, char **argv)
         //execute pending callbacks
         ros::spinOnce();
 
-        if((wgps->hasDataToProcess())&&(ros::Time::now() > wgps->getTimeLastProcess() + ros::Duration(1)))
+        if(/*(wgps->hasDataToProcess())&&*/(ros::Time::now() > wgps->getTimeLastProcess() + ros::Duration(1)))
         {
             wgps->process();
             wgps->publishTrajectory(true);

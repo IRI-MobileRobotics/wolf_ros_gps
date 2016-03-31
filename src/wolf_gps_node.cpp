@@ -10,7 +10,6 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
                          const WolfScalar& _new_frame_elapsed_time,
                          const Eigen::Vector3s& _gps_sensor_p,
                          const Eigen::Vector1s& _gps_clock_bias,
-                         Eigen::Vector4s& _map_pose,
                          Eigen::Vector2s& _odom_std) :
         nh_(ros::this_node::getName()),
         last_odom_stamp_(0),
@@ -27,29 +26,22 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
     // parameters
     Eigen::Vector1s clock_bias;
     bool map_o_fixed;
-    //Eigen::Vector4s map_pose;
+    Eigen::Vector4s map_pose;
     WolfScalar map_o_degrees;
 
     nh_.param<bool>("map_o_fixed", map_o_fixed, false);
     nh_.param<WolfScalar>("map_o_degrees", map_o_degrees, 95.0);
-    nh_.param<WolfScalar>("map_p_x", _map_pose[0], 4789373);
-    nh_.param<WolfScalar>("map_p_y", _map_pose[1], 177039);
-    nh_.param<WolfScalar>("map_p_z", _map_pose[2], 4194527);
-    _map_pose[3] = map_o_degrees*M_PI/180;
-
-    std::cout << std::setprecision(12);
-    std::cout << "---------------- launch file PARAMS ----------------\n";
-    std::cout << "map_o_fixed: " << ((map_o_fixed) ? "true" : "false") << std::endl;
-    std::cout << "map_o_degrees " << map_o_degrees << std::endl;
-    std::cout << "map_pose " << _map_pose[0] << ", " << _map_pose[1] << ", " << _map_pose[2] << ", " << _map_pose[3] << std::endl;
-    std::cout << "----------------------------------------------------\n";
+    nh_.param<WolfScalar>("map_p_x", map_pose[0], 4789373);
+    nh_.param<WolfScalar>("map_p_y", map_pose[1], 177039);
+    nh_.param<WolfScalar>("map_p_z", map_pose[2], 4194527);
+    map_pose[3] = map_o_degrees*M_PI/180;
 
     // GPS sensor
     gps_sensor_ptr_ = new SensorGPS(new StateBlock(_gps_sensor_p, true), //gps sensor position. for now is fixed,
                                     new StateBlock(Eigen::Vector4s::Zero(), true),   //gps sensor orientation. is fixed
                                     new StateBlock(_gps_clock_bias),      //gps sensor bias
-                                    new StateBlock(_map_pose.head(3), true),   //map position
-                                    new StateBlock(_map_pose.tail(1), map_o_fixed));  // map orientation
+                                    new StateBlock(map_pose.head(3), true),   //map position
+                                    new StateBlock(map_pose.tail(1), map_o_fixed));  // map orientation
     // GPS sensor
     problem_->getHardwarePtr()->addSensor(gps_sensor_ptr_);
     gps_sensor_ptr_->addProcessor(new ProcessorGPS());
@@ -160,16 +152,6 @@ void WolfGPSNode::process()
     //std::cout << "|\tLoc: (" << vehicle_pose(0) << "," << vehicle_pose(1) << "," << vehicle_pose(2) << ")" << std::endl;// position of the vehicle's frame with respect to the map frame
     std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n";
 
-
-    if(problem_->getTrajectoryPtr()->getLastFramePtr()->nodeId() >= 500)            //(map_o_norm*180/M_PI < 35 && map_o_norm*180/M_PI > 14)
-    {
-//        TODO fix map_o non funziona!!
-        gps_sensor_ptr_->getMapOPtr()->fix();
-        std::cout << "\t\t\t\tmap_o FIXED" << std::endl;
-        std::cout << "\t\t\t\tmap_o FIXED" << std::endl;
-        std::cout << "\t\t\t\tmap_o FIXED" << std::endl;
-        std::cout << "\t\t\t\tmap_o FIXED" << std::endl;
-    }
 }
 
 
