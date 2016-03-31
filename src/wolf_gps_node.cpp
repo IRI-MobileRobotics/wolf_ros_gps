@@ -63,7 +63,6 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
     // Broadcast 0 transform to align frames initially
     tfb_.sendTransform( tf::StampedTransform(tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(0, 0, 0)), ros::Time::now(), map_frame_name_, odom_frame_name_));
 
-
     // [init subscribers]
     odom_sub_ = nh_.subscribe("/teo/odomfused", 10, &WolfGPSNode::odometryCallback, this);
     gps_sub_ = nh_.subscribe("/sat_pseudoranges", 1000, &WolfGPSNode::gpsCallback, this);
@@ -91,6 +90,9 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
 
     // init publisher
     marker_pub_ = nh_.advertise<visualization_msgs::Marker>("visualization_marker", 1000);
+
+    //only for visualization reasons
+    first_T_ecef_map_saved = false;
 
     ROS_INFO("STARTING IRI WOLF...");
 }
@@ -241,7 +243,12 @@ void WolfGPSNode::broadcastTfMapOdom(Eigen::Vector2s _vehicle_p, Eigen::Vector1s
 /*
  * calculate translation of map frame
  */
-void WolfGPSNode::broadcastTfWorldMap(Eigen::Vector3s _map_p, Eigen::Vector1s _map_o, Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o, Eigen::Vector3s _sensor_p)
+//TODO delete unnecessary stuff, like the sensor_p_map position etc.
+//TODO pratically, all that is protected by tf_gps_wrt_other_frames
+//TODO then delete also the unused parameters and computations
+void WolfGPSNode::broadcastTfWorldMap(Eigen::Vector3s _map_p, Eigen::Vector1s _map_o,
+                                      //next params should be deleted:
+                                      Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o, Eigen::Vector3s _sensor_p)
 {
     int verbose_level_ = 0;
     bool tf_gps_wrt_other_frames = false; //true only for debug
@@ -256,7 +263,7 @@ void WolfGPSNode::broadcastTfWorldMap(Eigen::Vector3s _map_p, Eigen::Vector1s _m
         std::cout << "_map_p: " << _map_p.transpose() << "\t|  " << "_map_o: " << _map_o[0] << std::endl;
     }
 
-    // broadcast TF of gps wrt base
+    // broadcast TF of gps wrt base (TODO delete me)
     tfb_.sendTransform(tf::StampedTransform(tf::Transform(tf::Quaternion(0,0,0,1),tf::Vector3(_sensor_p[0], _sensor_p[1], _sensor_p[2])),ros::Time::now(),base_frame_name_,gps_frame_name_));
 
     Eigen::Vector4s sensor_p_base(_sensor_p[0], _sensor_p[1], _sensor_p[2], WolfScalar(1)); //sensor position wrt base (the vehicle)
@@ -373,6 +380,17 @@ void WolfGPSNode::broadcastTfWorldMap(Eigen::Vector3s _map_p, Eigen::Vector1s _m
     transform.setRotation(q);
     tfb_.sendTransform(tf::StampedTransform(transform, ros::Time::now(), world_frame_name_, map_frame_name_));
 
+    // Save the initial map pose, in order to use it as a fixed frame in rviz.
+    // otherwise, every time map_frame rotate, the gps fix are printed in a bad way
+    if(!first_T_ecef_map_saved)
+    {
+        first_T_ecef_map.setOrigin(tf::Vector3(_map_p[0], _map_p[1], _map_p[2]));
+        first_T_ecef_map.setRotation(q);
+        first_T_ecef_map_saved = true;
+    }
+
+    //broadcast a fixed point, to keep the camera still in RVIZ
+    tfb_.sendTransform(tf::StampedTransform(first_T_ecef_map, ros::Time::now(), world_frame_name_, map_initial_frame_name_));
 
 
     // broadcast TF of gps wrt world
