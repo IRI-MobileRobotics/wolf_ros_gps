@@ -26,7 +26,7 @@
         <param name="map_p_x" value="4789372.8"/>
         <param name="map_p_y" value="177039.6"/>
         <param name="map_p_z" value="4194527"/>
-        <remap from="/sat_pseudoranges" to="gasdrfwer"/><!---->
+        <!--<remap from="/sat_pseudoranges" to="gasdrfwer"/>-->
         <!--<remap from="/teo/odomfused" to="gasdrfwer"/>-->
     </node>
 
