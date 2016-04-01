@@ -18,7 +18,7 @@ int main(int argc, char **argv)
     int window_length = 5;
     double new_frame_elapsed_time = 1.0;
     // BUONO LUNGO
-    Eigen::Vector3s gps_sensor_p(0.55, 0.2, 1.1);
+    Eigen::Vector3s gps_sensor_p(0.55, -0.2, 1.1);
     Eigen::Vector1s gps_clock_bias; gps_clock_bias << -0.0002;
 //    //BUONO CORTO
 //    Eigen::Vector3s gps_sensor_p(0.55, -0.2, 1.1);
@@ -37,10 +37,10 @@ int main(int argc, char **argv)
         //execute pending callbacks
         ros::spinOnce();
 
-        if((wgps->hasDataToProcess())&&(ros::Time::now() > wgps->getTimeLastProcess() + ros::Duration(1)))
+        if(/*(wgps->hasDataToProcess())&&*/(ros::Time::now() > wgps->getTimeLastProcess() + ros::Duration(1)))
         {
             wgps->process();
-            wgps->publishTrajectory(true);
+            wgps->publishTrajectory(false);
         }
 
         //relax to fit output rate

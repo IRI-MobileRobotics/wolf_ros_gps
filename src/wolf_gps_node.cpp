@@ -657,8 +657,8 @@ void WolfGPSNode::publishTrajectory(bool verbose)
         marker.scale.z = 0.1;
         marker.color.a = 1.0;
         marker.color.r = 0.0;
-        marker.color.g = 1.0;
-        marker.color.b = 0.0;
+        marker.color.g = 0.0;
+        marker.color.b = 1.0;
         marker_pub_.publish( marker );
 
     }
@@ -697,7 +697,7 @@ void WolfGPSNode::fixEcefCallback(const iri_common_drivers_msgs::NavSatFix_ecef:
 
     m.color.r = 1.0f;
     m.color.g = 0.0f;
-    m.color.b = 1.0f;
-    m.color.a = 0.4;
+    m.color.b = 0.0f;
+    m.color.a = 0.8;
     marker_pub_.publish(m);
 }
