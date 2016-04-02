@@ -54,7 +54,6 @@ public:
                 const WolfScalar& _new_frame_elapsed_time,
                 const Eigen::Vector3s& _gps_sensor_p,
                 const Eigen::Vector1s& _sensor_bias,
-                Eigen::Vector4s& _map_pose,
                 Eigen::Vector2s& _odom_std);
     virtual ~WolfGPSNode();
 
@@ -73,7 +72,6 @@ public:
 protected:
     //sets the problem
     WolfProblem* problem_;
-    FrameStructure frame_structure_;
 
     //pointer to a sensor providing predictions
     SensorOdom2D* sensor_prior_;
@@ -104,6 +102,11 @@ protected:
     const std::string odom_frame_name_ = "teo_odom";
     void broadcastTfWorldMap(Eigen::Vector3s _map_p, Eigen::Vector1s _map_o, Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o, Eigen::Vector3s _sensor_p);
     void broadcastTfMapOdom(Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o);
+
+    //only for visualization reasons
+    const std::string map_initial_frame_name_ = "map_initial";
+    bool first_T_ecef_map_saved;
+    tf::StampedTransform first_T_ecef_map;
 
     //ceres
     int max_iterations_;

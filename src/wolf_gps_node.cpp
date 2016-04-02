@@ -9,8 +9,7 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
                          const unsigned int& _trajectory_size,
                          const WolfScalar& _new_frame_elapsed_time,
                          const Eigen::Vector3s& _gps_sensor_p,
-                         const Eigen::Vector1s& _sensor_bias,
-                         Eigen::Vector4s& _map_pose,
+                         const Eigen::Vector1s& _gps_clock_bias,
                          Eigen::Vector2s& _odom_std) :
         nh_(ros::this_node::getName()),
         last_odom_stamp_(0),
@@ -24,12 +23,25 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
     //std::cout << "WolfGPSNode::WolfGPSNode(...) -- constructor\n";
     assert( _prior.size() == 3 && "Wrong init_frame state vector");
 
+    // parameters
+    Eigen::Vector1s clock_bias;
+    bool map_o_fixed;
+    Eigen::Vector4s map_pose;
+    WolfScalar map_o_degrees;
+
+    nh_.param<bool>("map_o_fixed", map_o_fixed, false);
+    nh_.param<WolfScalar>("map_o_degrees", map_o_degrees, 95.0);
+    nh_.param<WolfScalar>("map_p_x", map_pose[0], 4789373);
+    nh_.param<WolfScalar>("map_p_y", map_pose[1], 177039);
+    nh_.param<WolfScalar>("map_p_z", map_pose[2], 4194527);
+    map_pose[3] = map_o_degrees*M_PI/180;
+
     // GPS sensor
     gps_sensor_ptr_ = new SensorGPS(new StateBlock(_gps_sensor_p, true), //gps sensor position. for now is fixed,
                                     new StateBlock(Eigen::Vector4s::Zero(), true),   //gps sensor orientation. is fixed
-                                    new StateBlock(_sensor_bias),      //gps sensor bias
-                                    new StateBlock(_map_pose.head(3), true),   //map position
-                                    new StateBlock(_map_pose.tail(1)));  // map orientation
+                                    new StateBlock(_gps_clock_bias),      //gps sensor bias
+                                    new StateBlock(map_pose.head(3), true),   //map position
+                                    new StateBlock(map_pose.tail(1), map_o_fixed));  // map orientation
     // GPS sensor
     problem_->getHardwarePtr()->addSensor(gps_sensor_ptr_);
     gps_sensor_ptr_->addProcessor(new ProcessorGPS());
@@ -50,7 +62,6 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
     // [init publishers]
     // Broadcast 0 transform to align frames initially
     tfb_.sendTransform( tf::StampedTransform(tf::Transform(tf::Quaternion(0,0,0,1), tf::Vector3(0, 0, 0)), ros::Time::now(), map_frame_name_, odom_frame_name_));
-
 
     // [init subscribers]
     odom_sub_ = nh_.subscribe("/teo/odomfused", 10, &WolfGPSNode::odometryCallback, this);
@@ -80,6 +91,9 @@ WolfGPSNode::WolfGPSNode(const Eigen::VectorXs& _prior,
     // init publisher
     marker_pub_ = nh_.advertise<visualization_msgs::Marker>("visualization_marker", 1000);
 
+    //only for visualization reasons
+    first_T_ecef_map_saved = false;
+
     ROS_INFO("STARTING IRI WOLF...");
 }
 
@@ -105,8 +119,8 @@ void WolfGPSNode::process()
     ceres::Solver::Summary summary = ceres_manager_->solve(ceres_options_);
     std::cout << "------------------------- SOLVED -------------------------" << std::endl;
     //std::cout << (use_auto_diff_wrapper_ ? "AUTO DIFF WRAPPER" : "CERES AUTO DIFF") << std::endl;
-    std::cout << summary.FullReport() << std::endl;
-//    std::cout << summary.BriefReport() << std::endl;
+//    std::cout << summary.FullReport() << std::endl;
+    std::cout << summary.BriefReport() << std::endl;
 
     // Sets localization timestamp & Gets wolf localization estimate
     time_last_process_ = ros::Time::now();
@@ -124,11 +138,14 @@ void WolfGPSNode::process()
     // MARKERS VEHICLE & CONSTRAINTS
     // [...]
 
+    WolfScalar map_o_norm = gps_sensor_ptr_->getMapOPtr()->getVector()[0];
+    while (map_o_norm < -M_PI)  map_o_norm += 2*M_PI;
+    while (map_o_norm >  M_PI)  map_o_norm -= 2*M_PI;
 
     std::cout << std::setprecision(12);
     std::cout << "\n~~~~ RESULTS ~~~~\n";
     std::cout << "|\tmap P: " << gps_sensor_ptr_->getMapPPtr()->getVector().transpose() << std::endl;// map position wrt (ecef)
-    std::cout << "|\tmap O: " << gps_sensor_ptr_->getMapOPtr()->getVector().transpose() << std::endl;// map orientation wrt (ecef)
+    std::cout << "|\tmap O: " << gps_sensor_ptr_->getMapOPtr()->getVector().transpose() << "\t\t(" << map_o_norm*180/M_PI << "º)" << std::endl;// map orientation wrt (ecef)
     std::cout << "|\tVehicle Pose: " << vehicle_pose.transpose() << std::endl;// position of the vehicle's frame with respect to the initial pos frame
     //publishTrajectory(false); (now is in main)
     std::cout << "|\tsensor P: " << gps_sensor_ptr_->getPPtr()->getVector().transpose() << std::endl;// position of the sensor with respect to the vehicle's frame
@@ -136,7 +153,6 @@ void WolfGPSNode::process()
     std::cout << "|\tbias: " << gps_sensor_ptr_->getIntrinsicPtr()->getVector().transpose() << std::endl;//intrinsic parameter  = receiver time bias
     //std::cout << "|\tLoc: (" << vehicle_pose(0) << "," << vehicle_pose(1) << "," << vehicle_pose(2) << ")" << std::endl;// position of the vehicle's frame with respect to the map frame
     std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n";
-
 
 }
 
@@ -227,7 +243,12 @@ void WolfGPSNode::broadcastTfMapOdom(Eigen::Vector2s _vehicle_p, Eigen::Vector1s
 /*
  * calculate translation of map frame
  */
-void WolfGPSNode::broadcastTfWorldMap(Eigen::Vector3s _map_p, Eigen::Vector1s _map_o, Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o, Eigen::Vector3s _sensor_p)
+//TODO delete unnecessary stuff, like the sensor_p_map position etc.
+//TODO pratically, all that is protected by tf_gps_wrt_other_frames
+//TODO then delete also the unused parameters and computations
+void WolfGPSNode::broadcastTfWorldMap(Eigen::Vector3s _map_p, Eigen::Vector1s _map_o,
+                                      //next params should be deleted:
+                                      Eigen::Vector2s _vehicle_p, Eigen::Vector1s _vehicle_o, Eigen::Vector3s _sensor_p)
 {
     int verbose_level_ = 0;
     bool tf_gps_wrt_other_frames = false; //true only for debug
@@ -242,7 +263,7 @@ void WolfGPSNode::broadcastTfWorldMap(Eigen::Vector3s _map_p, Eigen::Vector1s _m
         std::cout << "_map_p: " << _map_p.transpose() << "\t|  " << "_map_o: " << _map_o[0] << std::endl;
     }
 
-    // broadcast TF of gps wrt base
+    // broadcast TF of gps wrt base (TODO delete me)
     tfb_.sendTransform(tf::StampedTransform(tf::Transform(tf::Quaternion(0,0,0,1),tf::Vector3(_sensor_p[0], _sensor_p[1], _sensor_p[2])),ros::Time::now(),base_frame_name_,gps_frame_name_));
 
     Eigen::Vector4s sensor_p_base(_sensor_p[0], _sensor_p[1], _sensor_p[2], WolfScalar(1)); //sensor position wrt base (the vehicle)
@@ -359,6 +380,17 @@ void WolfGPSNode::broadcastTfWorldMap(Eigen::Vector3s _map_p, Eigen::Vector1s _m
     transform.setRotation(q);
     tfb_.sendTransform(tf::StampedTransform(transform, ros::Time::now(), world_frame_name_, map_frame_name_));
 
+    // Save the initial map pose, in order to use it as a fixed frame in rviz.
+    // otherwise, every time map_frame rotate, the gps fix are printed in a bad way
+    if(!first_T_ecef_map_saved)
+    {
+        first_T_ecef_map.setOrigin(tf::Vector3(_map_p[0], _map_p[1], _map_p[2]));
+        first_T_ecef_map.setRotation(q);
+        first_T_ecef_map_saved = true;
+    }
+
+    //broadcast a fixed point, to keep the camera still in RVIZ
+    tfb_.sendTransform(tf::StampedTransform(first_T_ecef_map, ros::Time::now(), world_frame_name_, map_initial_frame_name_));
 
 
     // broadcast TF of gps wrt world
@@ -595,7 +627,8 @@ ros::Time WolfGPSNode::getTimeLastProcess()
 
 void WolfGPSNode::publishTrajectory(bool verbose)
 {
-    std::cout << "Trajectory:\n";
+    if(verbose)
+        std::cout << "Trajectory:\n";
     //To print all the previous frame
     int i=0;
     for (auto it : *(problem_->getTrajectoryPtr()->getFrameListPtr()))
@@ -624,8 +657,8 @@ void WolfGPSNode::publishTrajectory(bool verbose)
         marker.scale.z = 0.1;
         marker.color.a = 1.0;
         marker.color.r = 0.0;
-        marker.color.g = 1.0;
-        marker.color.b = 0.0;
+        marker.color.g = 0.0;
+        marker.color.b = 1.0;
         marker_pub_.publish( marker );
 
     }
@@ -664,7 +697,7 @@ void WolfGPSNode::fixEcefCallback(const iri_common_drivers_msgs::NavSatFix_ecef:
 
     m.color.r = 1.0f;
     m.color.g = 0.0f;
-    m.color.b = 1.0f;
-    m.color.a = 0.4;
+    m.color.b = 0.0f;
+    m.color.a = 0.8;
     marker_pub_.publish(m);
 }

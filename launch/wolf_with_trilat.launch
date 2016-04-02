@@ -1,0 +1,21 @@
+<launch>
+
+    <include file="$(find wolf_ros_gps)/launch/gps_odom_bag.launch" />
+
+    <node pkg="asterx1_node"
+          type="trilat_node"
+          name="trilat_node"
+          output="screen">
+        <!-- <remap from="/iri_asterx1_gps/gps_ecef" to="/teo/sensors/gps/gps_ecef"/> -->
+    </node>
+
+    <node pkg="asterx1_node"
+          type="viz_helper"
+          name="viz_helper">
+        <remap from="/viz_helper/visualization_marker" to="/wolf_gps_node/visualization_marker"/>
+        <!-- <remap from="/real_fix" to="/teo/sensors/gps/gps_ecef"/> -->
+        <!-- <remap from="/iri_asterx1_gps/gps_ecef" to="/teo/sensors/gps/gps_ecef"/> -->
+    </node>
+
+</launch>
+

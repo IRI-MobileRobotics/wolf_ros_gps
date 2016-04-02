@@ -1,0 +1,43 @@
+<launch>
+
+    <!-- bag -->
+    <arg name="bag_file_name" default="/home/ptirindelli/rosbags/teo/2016-03-07-16-56-11.bag" />
+
+
+    <!-- robot -->
+    <param name="robot_description" command="$(find xacro)/xacro.py '$(find teo_base)/model/teo.urdf.xacro'" />
+
+    <node name="rviz"
+        pkg="rviz"
+        type="rviz"
+        args="-d $(find wolf_ros_gps)/rviz/gps_odom_teo.rviz"
+        output="screen"/>
+
+    <node pkg="asterx1_node"
+        type="raw_receiver_node"
+        name="raw_receiver_node" />
+
+    <node pkg="wolf_ros_gps"
+          type="wolf_gps_node"
+          name="wolf_gps_node"
+          output="screen">
+        <param name="map_o_fixed" value="true"/>
+        <param name="map_o_degrees" value="15.0"/>
+        <param name="map_p_x" value="4789372.8"/>
+        <param name="map_p_y" value="177039.6"/>
+        <param name="map_p_z" value="4194527"/>
+        <!--<remap from="/sat_pseudoranges" to="gasdrfwer"/>-->
+        <!--<remap from="/teo/odomfused" to="gasdrfwer"/>-->
+    </node>
+
+    <node pkg="rosbag"
+          type="play"
+          name="rosbag"
+          args="-d 0 -r 1 --clock -k $(arg bag_file_name)">
+
+    </node>
+
+    <param name="use_sim_time" value="true" />
+
+</launch>
+
