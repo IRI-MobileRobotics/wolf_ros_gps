@@ -1,0 +1,26 @@
+<launch>
+
+    <!-- bag -->
+    <arg name="bag_file_name2" default="/home/pier/Dropbox/Universita/tesi/rosbag_teo/results/wolf_odom_only.bag" />
+
+
+    <!-- robot -->
+    <param name="robot_description" command="$(find xacro)/xacro.py '$(find teo_base)/model/teo.urdf.xacro'" />
+
+    <node name="rviz"
+        pkg="rviz"
+        type="rviz"
+        args="-d $(find wolf_ros_gps)/rviz/gps_odom_teo.rviz"
+        output="screen"/>
+
+    <node pkg="rosbag"
+          type="play"
+          name="rosbag"
+          args="-d 1 -r 20 -u 345 --clock -k $(arg bag_file_name2)">
+
+    </node>
+
+    <param name="use_sim_time" value="true" />
+
+</launch>
+

@@ -1,0 +1,41 @@
+<launch>
+
+    <!-- bag -->
+    <arg name="bag_file_name1" default="/home/pier/Dropbox/Universita/tesi/rosbag_teo/results/wolf_odom.bag" />
+    <arg name="bag_file_name2" default="/home/pier/Dropbox/Universita/tesi/rosbag_teo/results/wolf_odom_gps.bag" />
+
+    <arg name="bag_file_name3" default="/home/pier/catkin_ws/2016-04-02-20-45-29.bag" />
+    <arg name="bag_file_name4" default="/home/pier/catkin_ws/2016-04-02-21-16-08.bag" />
+
+
+    <arg name="bag_file_name10" default="/home/pier/catkin_ws/2016-04-02-22-42-10.bag" />
+    <arg name="bag_file_name11" default="/home/pier/catkin_ws/2016-04-02-22-55-32.bag" />
+    <arg name="bag_file_name12" default="/home/pier/catkin_ws/2016-04-03-00-04-32.bag" />
+    <arg name="bag_file_name13" default="/home/pier/catkin_ws/odom_only_2016-04-03-08-14-46.bag" />
+    <arg name="bag_file_name14" default="/home/pier/catkin_ws/.bag" />
+    <arg name="bag_file_name15" default="/home/pier/catkin_ws/.bag" />
+    <arg name="bag_file_name16" default="/home/pier/catkin_ws/.bag" />
+    <arg name="bag_file_name17" default="/home/pier/catkin_ws/.bag" />
+
+
+
+    <!-- robot -->
+    <param name="robot_description" command="$(find xacro)/xacro.py '$(find teo_base)/model/teo.urdf.xacro'" />
+
+    <node name="rviz"
+        pkg="rviz"
+        type="rviz"
+        args="-d $(find wolf_ros_gps)/rviz/gps_odom_teo.rviz"
+        output="screen"/>
+
+    <node pkg="rosbag"
+          type="play"
+          name="rosbag"
+          args="-d 1 -r 30 --clock -k $(arg bag_file_name13)">
+
+    </node>
+
+    <param name="use_sim_time" value="true" />
+
+</launch>
+
