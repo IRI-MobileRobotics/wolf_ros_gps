@@ -1,7 +1,8 @@
 <launch>
 
     <!-- bag -->
-    <arg name="bag_file_name2" default="/home/pier/Dropbox/Universita/tesi/rosbag_teo/results/wolf_odom_only.bag" />
+    <arg name="bag_file_name_home" default="/home/pier/Dropbox/Universita/tesi/rosbag_teo/results/wolf_odom_only.bag" />
+    <arg name="bag_file_name_lab" default="/home/ptirindelli/rosbags/teo/results/wolf_odom_only.bag" />
 
 
     <!-- robot -->
@@ -16,7 +17,7 @@
     <node pkg="rosbag"
           type="play"
           name="rosbag"
-          args="-d 1 -r 20 -u 345 --clock -k $(arg bag_file_name2)">
+          args="-d 1 -r 20 -u 345 --clock -k $(arg bag_file_name_lab)">
 
     </node>
 
